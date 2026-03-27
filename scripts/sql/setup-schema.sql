@@ -192,6 +192,31 @@ CREATE TABLE IF NOT EXISTS shp.governance_packages (
 
 COMMENT ON TABLE shp.governance_packages IS 'Governance import/export package tracking';
 
+-- ----------------------------------------------------------------
+-- TABLE: shp.frontend_commands
+-- Stores create/update/export/import commands triggered by web pages.
+-- Supports command history query from the same UI.
+-- ----------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS shp.frontend_commands (
+    id              BIGSERIAL       PRIMARY KEY,
+    tenant_id       TEXT            NOT NULL,
+    client_surface  TEXT            NOT NULL,           -- operations-center | operations-page | admin-page
+    command_type    TEXT            NOT NULL,           -- create | update | export | import
+    http_method     TEXT            NOT NULL,
+    request_path    TEXT            NOT NULL,
+    query_params    JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    request_body    JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    response_status INTEGER         NOT NULL,
+    success         BOOLEAN         NOT NULL DEFAULT false,
+    correlation_id  TEXT            NULL,
+    actor           TEXT            NULL,
+    duration_ms     INTEGER         NULL,
+    response_summary JSONB          NOT NULL DEFAULT '{}'::jsonb,
+    created_at      TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE shp.frontend_commands IS 'History of create/update/export/import commands triggered by web interfaces';
+
 -- ================================================================
 -- INDEXES
 -- ================================================================
@@ -264,6 +289,16 @@ CREATE INDEX IF NOT EXISTS ix_gov_tenant_type
 
 CREATE INDEX IF NOT EXISTS ix_gov_operation
     ON shp.governance_packages (operation_id);
+
+-- frontend_commands
+CREATE INDEX IF NOT EXISTS ix_fc_tenant_created
+    ON shp.frontend_commands (tenant_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS ix_fc_type_status
+    ON shp.frontend_commands (command_type, response_status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS ix_fc_surface
+    ON shp.frontend_commands (client_surface, created_at DESC);
 
 -- ================================================================
 -- GRANTS FOR APPLICATION USER (shp_app_user)

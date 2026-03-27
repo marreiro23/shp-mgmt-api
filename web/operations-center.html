@@ -559,6 +559,7 @@
         <article class="page" id="auditPage">
           <div class="tabs">
             <button class="tab active" data-tab="audList" type="button">Audit Query</button>
+            <button class="tab" data-tab="cmdList" type="button">Frontend Commands</button>
           </div>
           <div class="tab-panel active" id="audList">
             <div class="section">
@@ -573,6 +574,37 @@
               </div>
               <div class="button-row">
                 <button id="btnAudList" type="button">List audit events</button>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel" id="cmdList">
+            <div class="section">
+              <h3>Frontend command history</h3>
+              <div class="grid">
+                <div><label>Command Type</label>
+                  <select id="cmdType">
+                    <option value="">(all)</option>
+                    <option value="create">create</option>
+                    <option value="update">update</option>
+                    <option value="export">export</option>
+                    <option value="import">import</option>
+                  </select>
+                </div>
+                <div><label>Surface</label>
+                  <select id="cmdSurface">
+                    <option value="operations-center">operations-center</option>
+                    <option value="operations-page">operations-page</option>
+                    <option value="admin-page">admin-page</option>
+                    <option value="">(all)</option>
+                  </select>
+                </div>
+                <div><label>Status Code</label><input id="cmdStatusCode" placeholder="200" /></div>
+                <div><label>Path contains</label><input id="cmdPathContains" placeholder="/export" /></div>
+                <div><label>Limit</label><input id="cmdLimit" value="20" /></div>
+                <div><label>Offset</label><input id="cmdOffset" value="0" /></div>
+              </div>
+              <div class="button-row">
+                <button id="btnCmdList" type="button">List frontend commands</button>
               </div>
             </div>
           </div>
@@ -691,6 +723,7 @@
 
   <script>
     const API = '/api/v1/sharepoint';
+    const CLIENT_SURFACE = 'operations-center';
 
     function byId(id) {
       return document.getElementById(id);
@@ -700,8 +733,18 @@
       byId('mainOutput').textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
     }
 
+    function withClientHeaders(options = {}) {
+      return {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          'x-client-surface': CLIENT_SURFACE
+        }
+      };
+    }
+
     async function fetchJson(path, options) {
-      const response = await fetch(path, options);
+      const response = await fetch(path, withClientHeaders(options));
       if (response.status === 204) {
         return { success: true, status: 204 };
       }
@@ -733,7 +776,7 @@
     }
 
     async function downloadFromUrl(url) {
-      const response = await fetch(url);
+      const response = await fetch(url, withClientHeaders());
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body?.error?.message || `HTTP ${response.status}`);
@@ -1050,6 +1093,18 @@
       setOutput('Audit events', data);
     }
 
+    async function cmdList() {
+      const commandType = byId('cmdType').value;
+      const surface = byId('cmdSurface').value;
+      const statusCode = byId('cmdStatusCode').value.trim();
+      const pathContains = byId('cmdPathContains').value.trim();
+      const limit = byId('cmdLimit').value.trim();
+      const offset = byId('cmdOffset').value.trim();
+
+      const data = await fetchJson(`${API}/frontend-commands?${buildQuery({ commandType, surface, statusCode, pathContains, limit, offset })}`);
+      setOutput('Frontend commands', data);
+    }
+
     async function expPreview() {
       const source = byId('expSource').value;
       const params = buildQuery({
@@ -1158,6 +1213,7 @@
       byId('btnCmpExecute').addEventListener('click', () => cmpExecute().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnOpsGet').addEventListener('click', () => opsGet().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnAudList').addEventListener('click', () => audList().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnCmdList').addEventListener('click', () => cmdList().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpPreview').addEventListener('click', () => expPreview().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpDownload').addEventListener('click', () => expDownload().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpImportPermissions').addEventListener('click', () => expImportPermissions().catch((error) => setOutput('Error', { message: error.message })));

@@ -1,6 +1,8 @@
 import XLSX from 'xlsx';
 import sharePointGraphService from '../services/sharepointGraphService.js';
 import inventoryDbService from '../services/inventoryDbService.js';
+import pgService from '../services/pgService.js';
+import frontendCommandService from '../services/frontendCommandService.js';
 
 function createCorrelationId(req) {
   return req.headers['x-correlation-id'] || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -983,6 +985,32 @@ export async function exportResults(req, res) {
     let rowsForCsv;
     let worksheetName = 'Resultados';
 
+    // Track export run in PostgreSQL. The INSERT is awaited so exportRunId is
+    // available before the response is sent; the UPDATE fires in the background
+    // via res.on('finish'). Both operations are no-ops when PG is not available.
+    let exportRunId = null;
+    if (pgService.isAvailable()) {
+      const tenantId = process.env.AZURE_TENANT_ID || 'default';
+      const r = await pgService.query(
+        `INSERT INTO shp.export_runs (tenant_id, source, format, status, metadata)
+         VALUES ($1, $2, $3, 'running', $4) RETURNING id`,
+        [tenantId, source, format, { filters: req.query }]
+      );
+      exportRunId = r?.rows?.[0]?.id ?? null;
+    }
+
+    res.on('finish', () => {
+      if (!exportRunId) return;
+      const rowCount = Array.isArray(rowsForCsv) ? rowsForCsv.length : (payload?.count ?? null);
+      const status = res.statusCode < 400 ? 'succeeded' : 'failed';
+      pgService
+        .query(
+          `UPDATE shp.export_runs SET status=$2, row_count=$3, finished_at=now() WHERE id=$1`,
+          [exportRunId, status, rowCount]
+        )
+        .catch(() => {});
+    });
+
     if (source === 'drive-files') {
       const driveId = String(req.query.driveId || '');
       const path = String(req.query.path || '');
@@ -1270,5 +1298,36 @@ export async function importConfigurationAndPermissions(req, res) {
     });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao importar configuracoes e permissoes para o tenant conectado.');
+  }
+}
+
+export async function listFrontendCommands(req, res) {
+  try {
+    const commandType = String(req.query.commandType || '').trim().toLowerCase();
+    const surface = String(req.query.surface || '').trim().toLowerCase();
+    const pathContains = String(req.query.pathContains || '').trim();
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+    const offset = req.query.offset ? parseInt(req.query.offset, 10) : 0;
+
+    let statusCode;
+    if (req.query.statusCode !== undefined && String(req.query.statusCode).trim() !== '') {
+      statusCode = parseInt(req.query.statusCode, 10);
+      if (Number.isNaN(statusCode)) {
+        return sendValidationError(res, req, 'statusCode inválido.');
+      }
+    }
+
+    const data = await frontendCommandService.listCommands({
+      commandType: commandType || undefined,
+      surface: surface || undefined,
+      pathContains: pathContains || undefined,
+      statusCode,
+      limit,
+      offset
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return sendError(res, req, error, 'Falha ao listar comandos executados via frontend.');
   }
 }

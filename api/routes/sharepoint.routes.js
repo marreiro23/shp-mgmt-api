@@ -1,4 +1,5 @@
 import express from 'express';
+import frontendCommandLogger from '../middleware/frontendCommandLogger.js';
 import {
   getAppRegistrationMetadata,
   updateAppRegistrationScopes
@@ -28,6 +29,7 @@ import {
   deleteItemPermission,
   exportResults,
   getConfig,
+  listFrontendCommands,
   getInventoryDatabase,
   importConfigurationAndPermissions,
   listChannelMembers,
@@ -54,6 +56,8 @@ import {
 } from '../controllers/sharepointController.js';
 
 const router = express.Router();
+
+router.use(frontendCommandLogger);
 
 router.get('/config', getConfig);
 router.get('/inventory/database', getInventoryDatabase);
@@ -95,6 +99,7 @@ router.get('/admin/app-registration', getAppRegistrationMetadata);
 router.post('/admin/update-scopes', updateAppRegistrationScopes);
 router.get('/operations/:operationId', getOperationStatus);
 router.get('/audit/events', listAuditEvents);
+router.get('/frontend-commands', listFrontendCommands);
 router.get('/admin-governance/export/package', getExportPackageContract);
 router.post('/admin-governance/import/preview', previewImportPackage);
 router.post('/admin-governance/import/execute', executeImportPackage);

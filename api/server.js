@@ -9,6 +9,7 @@ import corsMiddleware from './middleware/cors.js';
 import { consoleLogger, customLogger } from './middleware/logger.js';
 import rateLimiter from './middleware/rateLimiter.js';
 import sharepointRoutes from './routes/sharepoint.routes.js';
+import pgService from './services/pgService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -102,7 +103,8 @@ function createApp() {
         governanceCompareExecute: `${config.API_PREFIX}/sharepoint/admin-governance/compare/execute`,
         governanceCompareExport: `${config.API_PREFIX}/sharepoint/admin-governance/compare/export?operationId=<id>&format=csv`,
         operationStatus: `${config.API_PREFIX}/sharepoint/operations/:operationId`,
-        auditEvents: `${config.API_PREFIX}/sharepoint/audit/events`
+        auditEvents: `${config.API_PREFIX}/sharepoint/audit/events`,
+        frontendCommands: `${config.API_PREFIX}/sharepoint/frontend-commands`
       },
       web: {
         home: '/web/operations-center.html',
@@ -121,7 +123,13 @@ function createApp() {
       status: 'OK',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: config.NODE_ENV
+      environment: config.NODE_ENV,
+      database: {
+        configured: !!config.PG,
+        connected: pgService.isAvailable(),
+        host: config.PG?.host ?? null,
+        name: config.PG?.database ?? null
+      }
     });
   });
 
@@ -183,9 +191,23 @@ const PORT = config.PORT;
 const HOST = config.HOST;
 
 if (isMainModule) {
-  app.listen(PORT, HOST, () => {
+  const server = app.listen(PORT, HOST, async () => {
     console.log(`shp-mgmt-api em http://${HOST}:${PORT}`);
+    await pgService.initialize();
   });
+
+  async function gracefulShutdown(signal) {
+    console.log(`[server] ${signal} received — shutting down gracefully...`);
+    server.close(async () => {
+      await pgService.close();
+      process.exit(0);
+    });
+    // Force exit after 10 s if connections linger
+    setTimeout(() => process.exit(1), 10_000).unref();
+  }
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 }
 
 export default app;
