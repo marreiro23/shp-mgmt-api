@@ -60,6 +60,13 @@ function createApp() {
   ]);
   app.use('/web', express.static(webDir));
 
+  // Serve documentation files (markdown, etc.)
+  const docsDir = resolveStaticDir([
+    join(__dirname, '..', 'docs'),
+    join(__dirname, 'docs')
+  ]);
+  app.use('/docs', express.static(docsDir));
+
   app.get('/', (req, res) => {
     res.json({
       success: true,
@@ -114,6 +121,13 @@ function createApp() {
         operations: '/web/operations.html',
         collaboration: '/web/collaboration.html',
         admin: '/web/admin.html'
+      },
+      documentation: {
+        metadata: `${config.API_PREFIX}/sharepoint/docs`,
+        tutorials: '/docs/tutorials/',
+        howto: '/docs/how-to/',
+        reference: '/docs/reference/',
+        explanation: '/docs/explanation/'
       }
     });
   });
