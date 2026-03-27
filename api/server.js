@@ -97,6 +97,7 @@ function createApp() {
         governanceExportPackage: `${config.API_PREFIX}/sharepoint/admin-governance/export/package`,
         governanceImportPreview: `${config.API_PREFIX}/sharepoint/admin-governance/import/preview`,
         governanceImportExecute: `${config.API_PREFIX}/sharepoint/admin-governance/import/execute`,
+        governanceImportPermissionsPackage: `${config.API_PREFIX}/sharepoint/admin-governance/import/permissions-package`,
         governanceComparePreview: `${config.API_PREFIX}/sharepoint/admin-governance/compare/preview`,
         governanceCompareExecute: `${config.API_PREFIX}/sharepoint/admin-governance/compare/execute`,
         governanceCompareExport: `${config.API_PREFIX}/sharepoint/admin-governance/compare/export?operationId=<id>&format=csv`,

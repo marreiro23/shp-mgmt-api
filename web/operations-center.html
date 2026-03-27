@@ -592,6 +592,8 @@
                     <option value="drive-files">drive-files</option>
                     <option value="site-drives">site-drives</option>
                     <option value="site-libraries">site-libraries</option>
+                    <option value="tenant-sharepoint-inventory">tenant-sharepoint-inventory</option>
+                    <option value="tenant-permissions-standard">tenant-permissions-standard</option>
                     <option value="team-channels">team-channels</option>
                     <option value="team-channel-content">team-channel-content</option>
                     <option value="team-channel-members">team-channel-members</option>
@@ -615,10 +617,51 @@
                 <div><label>Path</label><input id="expPath"></div>
                 <div><label>Team ID</label><input id="expTeamId"></div>
                 <div><label>Channel ID</label><input id="expChannelId"></div>
+                <div><label>Search (sites)</label><input id="expSearch" value="*"></div>
+                <div><label>Top Sites</label><input id="expTopSites" value="50"></div>
+                <div><label>Top Items/Drive</label><input id="expTopItemsPerDrive" value="200"></div>
+                <div><label>Team IDs (csv)</label><input id="expTeamIds" placeholder="team-1,team-2"></div>
+                <div><label>Include Permissions</label>
+                  <select id="expIncludePermissions">
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </div>
+                <div><label>Include Channel Permissions</label>
+                  <select id="expIncludeChannelPermissions">
+                    <option value="false">false</option>
+                    <option value="true">true</option>
+                  </select>
+                </div>
               </div>
               <div class="button-row">
                 <button id="btnExpDownload" class="ok" type="button">Download export</button>
                 <button id="btnExpPreview" type="button">Preview as JSON</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h3>Import permissions/config package into connected tenant</h3>
+              <div class="grid">
+                <div><label>Import mode</label>
+                  <select id="expImportMode">
+                    <option value="update">update</option>
+                    <option value="always">always</option>
+                    <option value="skip-if-exists">skip-if-exists</option>
+                    <option value="replace-safe">replace-safe</option>
+                  </select>
+                </div>
+                <div><label>Dry run</label>
+                  <select id="expImportDryRun">
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </div>
+              </div>
+              <label>Permissions package JSON</label>
+              <textarea id="expImportPermissionsJson" placeholder='{"permissions": [{"resourceType":"file","driveId":"drive-id","itemId":"item-id","principalEmail":"user@example.com","roles":["read"]}]}'></textarea>
+              <div class="button-row">
+                <button id="btnExpImportPermissions" class="ok" type="button">Import package</button>
               </div>
             </div>
           </div>
@@ -1018,7 +1061,13 @@
         userId: byId('expUserId').value,
         path: byId('expPath').value,
         teamId: byId('expTeamId').value,
-        channelId: byId('expChannelId').value
+        channelId: byId('expChannelId').value,
+        search: byId('expSearch').value,
+        topSites: byId('expTopSites').value,
+        topItemsPerDrive: byId('expTopItemsPerDrive').value,
+        teamIds: byId('expTeamIds').value,
+        includePermissions: byId('expIncludePermissions').value,
+        includeChannelPermissions: byId('expIncludeChannelPermissions').value
       });
       const data = await fetchJson(`${API}/export?${params}`);
       setOutput('Operational export preview', data);
@@ -1036,10 +1085,38 @@
         userId: byId('expUserId').value,
         path: byId('expPath').value,
         teamId: byId('expTeamId').value,
-        channelId: byId('expChannelId').value
+        channelId: byId('expChannelId').value,
+        search: byId('expSearch').value,
+        topSites: byId('expTopSites').value,
+        topItemsPerDrive: byId('expTopItemsPerDrive').value,
+        teamIds: byId('expTeamIds').value,
+        includePermissions: byId('expIncludePermissions').value,
+        includeChannelPermissions: byId('expIncludeChannelPermissions').value
       });
       await downloadFromUrl(`${API}/export?${params}`);
       setOutput('Operational export download', { success: true, source, format });
+    }
+
+    async function expImportPermissions() {
+      const raw = byId('expImportPermissionsJson').value.trim();
+      if (!raw) {
+        throw new Error('Permissions package JSON is required.');
+      }
+
+      const parsed = JSON.parse(raw);
+      const payload = {
+        mode: byId('expImportMode').value,
+        dryRun: byId('expImportDryRun').value === 'true',
+        permissions: Array.isArray(parsed?.permissions) ? parsed.permissions : Array.isArray(parsed?.data?.permissions) ? parsed.data.permissions : []
+      };
+
+      const data = await fetchJson(`${API}/admin-governance/import/permissions-package`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      setOutput('Import permissions/config package', data);
     }
 
     async function expCompareDownload() {
@@ -1083,6 +1160,7 @@
       byId('btnAudList').addEventListener('click', () => audList().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpPreview').addEventListener('click', () => expPreview().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpDownload').addEventListener('click', () => expDownload().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnExpImportPermissions').addEventListener('click', () => expImportPermissions().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpCompareDownload').addEventListener('click', () => expCompareDownload().catch((error) => setOutput('Error', { message: error.message })));
     }
 

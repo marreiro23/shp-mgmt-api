@@ -141,6 +141,212 @@ function flattenPermissionsForExport(driveId, itemId, permissions) {
   }));
 }
 
+function parsePermissionPrincipals(permission) {
+  const entries = [];
+
+  const identities = Array.isArray(permission?.grantedToIdentitiesV2)
+    ? permission.grantedToIdentitiesV2
+    : Array.isArray(permission?.grantedToIdentities)
+      ? permission.grantedToIdentities
+      : [];
+
+  identities.forEach((identity) => {
+    const user = identity?.user || {};
+    entries.push({
+      principalType: 'user',
+      principalId: user.id || '',
+      principalEmail: user.email || user.userPrincipalName || '',
+      principalDisplayName: user.displayName || ''
+    });
+  });
+
+  const single = permission?.grantedToV2 || permission?.grantedTo;
+  if (single?.user) {
+    entries.push({
+      principalType: 'user',
+      principalId: single.user.id || '',
+      principalEmail: single.user.email || single.user.userPrincipalName || '',
+      principalDisplayName: single.user.displayName || ''
+    });
+  }
+
+  if (entries.length === 0) {
+    entries.push({
+      principalType: permission?.link ? 'link' : 'unknown',
+      principalId: '',
+      principalEmail: '',
+      principalDisplayName: ''
+    });
+  }
+
+  return entries;
+}
+
+function normalizePermissionRows({ resourceType, siteId = '', driveId = '', itemId = '', teamId = '', channelId = '', resourceName = '', permissions = [] }) {
+  const rows = [];
+
+  (permissions || []).forEach((permission) => {
+    const principals = parsePermissionPrincipals(permission);
+    principals.forEach((principal) => {
+      rows.push({
+        schema: 'sharepoint-permission-v1',
+        resourceType,
+        resourceName,
+        siteId,
+        driveId,
+        itemId,
+        teamId,
+        channelId,
+        permissionId: permission.id || '',
+        roles: permission.roles || [],
+        inheritedFrom: permission.inheritedFrom || null,
+        principalType: principal.principalType,
+        principalId: principal.principalId,
+        principalEmail: principal.principalEmail,
+        principalDisplayName: principal.principalDisplayName,
+        link: permission.link || null,
+        invitation: permission.invitation || null
+      });
+    });
+  });
+
+  return rows;
+}
+
+function parseCsvList(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function collectTenantSharePointInventory({ search, topSites, topItemsPerDrive, includePermissions, includeChannelPermissions, teamIds }) {
+  const sites = await sharePointGraphService.listSites(search || '*', topSites);
+  const drives = [];
+  const files = [];
+  const folders = [];
+  const permissions = [];
+  const channels = [];
+
+  for (const site of sites) {
+    let sitePermissions = [];
+    if (includePermissions) {
+      try {
+        sitePermissions = await sharePointGraphService.listSitePermissions(site.id);
+      } catch {
+        sitePermissions = [];
+      }
+      permissions.push(...normalizePermissionRows({
+        resourceType: 'site',
+        siteId: site.id,
+        resourceName: site.displayName || site.name || '',
+        permissions: sitePermissions
+      }));
+    }
+
+    const siteDrives = await sharePointGraphService.listDrives(site.id);
+    siteDrives.forEach((drive) => drives.push({ ...drive, siteId: site.id, siteName: site.displayName || site.name || '' }));
+
+    for (const drive of siteDrives) {
+      if (includePermissions) {
+        let drivePermissions = [];
+        try {
+          drivePermissions = await sharePointGraphService.listDriveRootPermissions(drive.id);
+        } catch {
+          drivePermissions = [];
+        }
+        permissions.push(...normalizePermissionRows({
+          resourceType: 'drive',
+          siteId: site.id,
+          driveId: drive.id,
+          itemId: 'root',
+          resourceName: drive.name || '',
+          permissions: drivePermissions
+        }));
+      }
+
+      const items = await sharePointGraphService.listChildren(drive.id, '');
+      const limitedItems = items.slice(0, Math.max(1, topItemsPerDrive));
+
+      limitedItems.forEach((item) => {
+        const row = {
+          ...item,
+          siteId: site.id,
+          siteName: site.displayName || site.name || '',
+          driveId: drive.id,
+          driveName: drive.name || ''
+        };
+
+        if (item.folder) {
+          folders.push(row);
+        } else {
+          files.push(row);
+        }
+      });
+
+      if (includePermissions) {
+        for (const item of limitedItems) {
+          let itemPermissions = [];
+          try {
+            itemPermissions = await sharePointGraphService.listItemPermissions(drive.id, item.id);
+          } catch {
+            itemPermissions = [];
+          }
+
+          permissions.push(...normalizePermissionRows({
+            resourceType: item.folder ? 'folder' : 'file',
+            siteId: site.id,
+            driveId: drive.id,
+            itemId: item.id,
+            resourceName: item.name || '',
+            permissions: itemPermissions
+          }));
+        }
+      }
+    }
+  }
+
+  if (includeChannelPermissions && Array.isArray(teamIds) && teamIds.length > 0) {
+    for (const teamId of teamIds) {
+      const teamChannels = await sharePointGraphService.listTeamChannels(teamId);
+      for (const channel of teamChannels) {
+        channels.push({ teamId, ...channel });
+        const members = await sharePointGraphService.listChannelMembers(teamId, channel.id);
+        members.forEach((member) => {
+          permissions.push({
+            schema: 'sharepoint-permission-v1',
+            resourceType: 'channel',
+            resourceName: channel.displayName || '',
+            siteId: '',
+            driveId: '',
+            itemId: '',
+            teamId,
+            channelId: channel.id,
+            permissionId: member.id || '',
+            roles: Array.isArray(member.roles) ? member.roles : [],
+            inheritedFrom: null,
+            principalType: 'user',
+            principalId: member.userId || member.id || '',
+            principalEmail: member.email || member.userPrincipalName || '',
+            principalDisplayName: member.displayName || member.name || '',
+            link: null,
+            invitation: null
+          });
+        });
+      }
+    }
+  }
+
+  return {
+    sites,
+    drives,
+    files,
+    folders,
+    channels,
+    permissions
+  };
+}
+
 function persistInventorySafely(persistFn) {
   try {
     persistFn();
@@ -886,8 +1092,60 @@ export async function exportResults(req, res) {
       payload = { source, teamId, channelId, count: members.length, data: members };
       rowsForCsv = members;
       worksheetName = 'ChannelMembers';
+    } else if (source === 'tenant-sharepoint-inventory' || source === 'tenant-permissions-standard') {
+      const search = String(req.query.search || '*');
+      const topSites = req.query.topSites ? parseInt(req.query.topSites, 10) : 50;
+      const topItemsPerDrive = req.query.topItemsPerDrive ? parseInt(req.query.topItemsPerDrive, 10) : 200;
+      const includePermissions = source === 'tenant-permissions-standard' || String(req.query.includePermissions || 'false').toLowerCase() === 'true';
+      const includeChannelPermissions = source === 'tenant-permissions-standard' || String(req.query.includeChannelPermissions || 'false').toLowerCase() === 'true';
+      const teamIds = parseCsvList(req.query.teamIds);
+
+      const inventory = await collectTenantSharePointInventory({
+        search,
+        topSites,
+        topItemsPerDrive,
+        includePermissions,
+        includeChannelPermissions,
+        teamIds
+      });
+
+      payload = {
+        source,
+        generatedAt: new Date().toISOString(),
+        filters: {
+          search,
+          topSites,
+          topItemsPerDrive,
+          includePermissions,
+          includeChannelPermissions,
+          teamIds
+        },
+        summary: {
+          sites: inventory.sites.length,
+          drives: inventory.drives.length,
+          files: inventory.files.length,
+          folders: inventory.folders.length,
+          channels: inventory.channels.length,
+          permissions: inventory.permissions.length
+        },
+        data: inventory
+      };
+
+      if (source === 'tenant-permissions-standard') {
+        rowsForCsv = inventory.permissions;
+        worksheetName = 'PermissionsStandard';
+      } else {
+        rowsForCsv = [
+          ...inventory.sites.map((item) => ({ resourceType: 'site', ...item })),
+          ...inventory.drives.map((item) => ({ resourceType: 'drive', ...item })),
+          ...inventory.folders.map((item) => ({ resourceType: 'folder', ...item })),
+          ...inventory.files.map((item) => ({ resourceType: 'file', ...item })),
+          ...inventory.channels.map((item) => ({ resourceType: 'channel', ...item }))
+        ];
+        worksheetName = 'TenantInventory';
+      }
     } else {
-      return sendValidationError(res, req, 'source inválido. Valores suportados: drive-files, site-drives, site-libraries, team-channels, team-channel-content, groups, users, user-licenses, item-permissions, team-channel-members.');
+      return sendValidationError(res, req, 'source inválido. Valores suportados: drive-files, site-drives, site-libraries, team-channels, team-channel-content, groups, users, user-licenses, item-permissions, team-channel-members, tenant-sharepoint-inventory, tenant-permissions-standard.');
     }
 
     const now = new Date().toISOString().replace(/[:.]/g, '-');
@@ -912,5 +1170,105 @@ export async function exportResults(req, res) {
     return res.status(200).json({ success: true, data: payload });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao exportar resultados.');
+  }
+}
+
+export async function importConfigurationAndPermissions(req, res) {
+  try {
+    const dryRun = req.body?.dryRun !== false;
+    const mode = String(req.body?.mode || 'update').toLowerCase();
+    const packageRows = Array.isArray(req.body?.permissions)
+      ? req.body.permissions
+      : Array.isArray(req.body?.data?.permissions)
+        ? req.body.data.permissions
+        : [];
+
+    if (packageRows.length === 0) {
+      return sendValidationError(res, req, 'permissions e obrigatorio e deve conter ao menos um registro.');
+    }
+
+    const result = {
+      mode,
+      dryRun,
+      processed: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      failed: 0,
+      unsupported: 0,
+      details: []
+    };
+
+    for (const row of packageRows) {
+      const resourceType = String(row.resourceType || '').toLowerCase();
+
+      try {
+        if (resourceType === 'channel') {
+          const teamId = String(row.teamId || '');
+          const channelId = String(row.channelId || '');
+          const userId = String(row.principalId || '').trim();
+
+          if (!teamId || !channelId || !userId) {
+            result.skipped += 1;
+            result.details.push({ resourceType, action: 'skip', reason: 'teamId/channelId/principalId obrigatorios para channel.' });
+            continue;
+          }
+
+          if (dryRun) {
+            result.updated += 1;
+            result.details.push({ resourceType, action: 'simulate-add-member', teamId, channelId, userId, roles: row.roles || [] });
+            continue;
+          }
+
+          await sharePointGraphService.addChannelMember(teamId, channelId, userId, Array.isArray(row.roles) ? row.roles : []);
+          result.updated += 1;
+          result.details.push({ resourceType, action: 'add-member', teamId, channelId, userId });
+          continue;
+        }
+
+        const driveId = String(row.driveId || '');
+        const itemId = String(row.itemId || '').trim() || 'root';
+        const principalEmail = String(row.principalEmail || '').trim();
+        const roles = Array.isArray(row.roles) && row.roles.length > 0 ? row.roles : ['read'];
+
+        if (!driveId || !principalEmail) {
+          if (resourceType === 'site') {
+            result.unsupported += 1;
+            result.details.push({ resourceType, action: 'unsupported', reason: 'Importacao direta de permissao de site nao suportada por este endpoint.' });
+          } else {
+            result.skipped += 1;
+            result.details.push({ resourceType, action: 'skip', reason: 'driveId/principalEmail obrigatorios para permissao de item/drive.' });
+          }
+          continue;
+        }
+
+        if (dryRun) {
+          result.updated += 1;
+          result.details.push({ resourceType, action: 'simulate-invite', driveId, itemId, principalEmail, roles });
+          continue;
+        }
+
+        await sharePointGraphService.inviteItemPermissions(driveId, itemId, [{ email: principalEmail }], roles, 'Imported by permission package');
+        result.updated += 1;
+        result.details.push({ resourceType, action: 'invite', driveId, itemId, principalEmail, roles });
+      } catch (error) {
+        result.failed += 1;
+        result.details.push({
+          resourceType,
+          action: 'error',
+          code: error.code || `SP_${error.status || 500}`,
+          message: error.publicMessage || error.message || 'Falha ao aplicar registro de permissao.'
+        });
+      } finally {
+        result.processed += 1;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return sendError(res, req, error, 'Falha ao importar configuracoes e permissoes para o tenant conectado.');
   }
 }

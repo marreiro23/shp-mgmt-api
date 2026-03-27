@@ -34,6 +34,9 @@ Este diretório mantém apenas automações do escopo SharePoint Graph.
 - `Git-SyncMainAndValidate.ps1`
   - Atualiza branch `main`, valida sincronismo com remoto e executa comando opcional de validação.
 
+- `Import-SharePointPermissionsPackage.ps1`
+  - Importa pacote de configuracoes/permissoes no tenant conectado via endpoint administrativo da API.
+
 - `git-automation/README.md`
   - Guia detalhado de uso dos scripts de automação Git (bootstrap, branch e sync da main).
 
@@ -51,6 +54,7 @@ Este diretório mantém apenas automações do escopo SharePoint Graph.
 .\scripts\Git-InitLocalRepository.ps1 -InitialBranch main -CommitMessage "chore: bootstrap" -RemoteUrl "https://github.com/org/repo.git" -Push
 .\scripts\Git-NewBranch.ps1 -Name "feature/operations-center" -From main -Fetch -TrackRemote
 .\scripts\Git-SyncMainAndValidate.ps1 -MainBranch main -RemoteName origin -FailIfDirty -ValidationCommand "npm test -- --grep 'Web pages smoke tests'"
+.\scripts\Import-SharePointPermissionsPackage.ps1 -PackagePath ".\raw\permissions-package.json" -Mode update -DryRun
 ```
 
 ## Fluxo guiado para App Registration

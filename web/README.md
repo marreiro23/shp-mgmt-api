@@ -16,6 +16,8 @@ Frontend estático mínimo para validar o fluxo ativo da API SharePoint Graph.
   - Navegação lateral por módulos: SharePoint, Teams/Entra, Import, Compare, Operações, Auditoria e Exportação.
   - Execução de import/compare com `operationId` e integração com monitoramento assíncrono.
   - Exportação operacional e exportação de diff de compare por `operationId`.
+  - Exportação de inventário completo (`sites`, `drives`, `files`, `folders`) e pacote padronizado de permissões (`tenant-permissions-standard`) em `json/csv/xlsx`.
+  - Importação de pacote de configurações/permissões para o tenant conectado.
   - Layout desktop-like inspirado no modelo de operação da aplicação de referência.
 
 - `operations.html`

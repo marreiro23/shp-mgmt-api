@@ -29,6 +29,7 @@ import {
   exportResults,
   getConfig,
   getInventoryDatabase,
+  importConfigurationAndPermissions,
   listChannelMembers,
   listChannelContent,
   listDriveChildren,
@@ -100,5 +101,6 @@ router.post('/admin-governance/import/execute', executeImportPackage);
 router.post('/admin-governance/compare/preview', previewComparePackage);
 router.post('/admin-governance/compare/execute', executeComparePackage);
 router.get('/admin-governance/compare/export', exportCompareResult);
+router.post('/admin-governance/import/permissions-package', importConfigurationAndPermissions);
 
 export default router;

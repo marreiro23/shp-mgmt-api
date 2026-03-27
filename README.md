@@ -146,3 +146,10 @@ Consulte docs/ no modelo Diataxis:
 - how-to: tarefas operacionais praticas
 - reference: contratos, arquitetura, dependencias e endpoints
 - explanation: decisoes de design e trade-offs
+
+Documentacao adicional de banco:
+
+- tutorial de onboarding PostgreSQL
+- guia operacional de manutencao e expansao
+- referencia de schema e indices recomendados
+- explicacao da escolha arquitetural do PostgreSQL

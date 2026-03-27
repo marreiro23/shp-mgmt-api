@@ -3,7 +3,7 @@ import { X509Certificate } from 'crypto';
 import { existsSync, readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { ClientCertificateCredential } from '@azure/identity';
+import { ClientCertificateCredential, ClientSecretCredential } from '@azure/identity';
 
 const GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0';
 const DEFAULT_GRAPH_SCOPE = 'https://graph.microsoft.com/.default';
@@ -126,6 +126,7 @@ class SharePointGraphService {
 
   getConfig() {
     const certPath = getNonEmptyValue(process.env.CERT_PRIVATE_KEY_PATH);
+    const clientSecret = getNonEmptyValue(process.env.CLIENT_SECRET);
     const graphScope = getNonEmptyValue(process.env.GRAPH_SCOPE) || DEFAULT_GRAPH_SCOPE;
 
     return {
@@ -133,6 +134,7 @@ class SharePointGraphService {
       clientIdConfigured: Boolean(process.env.CLIENT_ID),
       certificatePathConfigured: Boolean(certPath),
       certificateThumbprintConfigured: Boolean(getNonEmptyValue(process.env.CERT_THUMBPRINT)),
+      clientSecretConfigured: Boolean(clientSecret),
       authMethod: this.authMethod || 'not-authenticated',
       graphBaseUrl: GRAPH_BASE_URL,
       scope: graphScope,
@@ -146,6 +148,7 @@ class SharePointGraphService {
   getCredential() {
     const tenantId = getNonEmptyValue(process.env.TENANT_ID);
     const clientId = getNonEmptyValue(process.env.CLIENT_ID);
+    const clientSecret = getNonEmptyValue(process.env.CLIENT_SECRET);
     const certificateRelativePath = getNonEmptyValue(process.env.CERT_PRIVATE_KEY_PATH);
     const expectedThumbprint = normalizeThumbprint(process.env.CERT_THUMBPRINT);
 
@@ -153,31 +156,42 @@ class SharePointGraphService {
       throw new Error('Configure TENANT_ID e CLIENT_ID no ambiente para usar Microsoft Graph.');
     }
 
-    if (!certificateRelativePath || !expectedThumbprint) {
-      throw new Error('Configure CERT_PRIVATE_KEY_PATH e CERT_THUMBPRINT para autenticar no Microsoft Graph com certificado.');
+    if (!certificateRelativePath && !clientSecret) {
+      throw new Error('Configure CLIENT_SECRET ou CERT_PRIVATE_KEY_PATH/CERT_THUMBPRINT para autenticar no Microsoft Graph.');
     }
 
     if (!this.credential) {
-      const certificatePath = resolve(API_ROOT, certificateRelativePath);
+      if (certificateRelativePath) {
+        const certificatePath = resolve(API_ROOT, certificateRelativePath);
 
-      if (!existsSync(certificatePath)) {
-        throw new Error(`Certificado não encontrado em ${certificatePath}. Verifique CERT_PRIVATE_KEY_PATH.`);
+        if (!existsSync(certificatePath)) {
+          throw new Error(`Certificado não encontrado em ${certificatePath}. Verifique CERT_PRIVATE_KEY_PATH.`);
+        }
+
+        if (!expectedThumbprint) {
+          throw new Error('Configure CERT_THUMBPRINT para autenticar no Microsoft Graph com certificado.');
+        }
+
+        const actualThumbprint = readCertificateThumbprint(certificatePath);
+        if (actualThumbprint !== expectedThumbprint) {
+          throw new Error(
+            `O thumbprint configurado em CERT_THUMBPRINT nao corresponde ao certificado em ${certificatePath}.`
+          );
+        }
+
+        this.credential = new ClientCertificateCredential(tenantId, clientId, {
+          certificatePath,
+          sendCertificateChain: true
+        });
+        this.authMethod = 'client-certificate';
+        this.certificatePath = certificatePath;
+        this.certificateThumbprint = actualThumbprint;
+      } else {
+        this.credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+        this.authMethod = 'client-secret';
+        this.certificatePath = null;
+        this.certificateThumbprint = null;
       }
-
-      const actualThumbprint = readCertificateThumbprint(certificatePath);
-      if (actualThumbprint !== expectedThumbprint) {
-        throw new Error(
-          `O thumbprint configurado em CERT_THUMBPRINT nao corresponde ao certificado em ${certificatePath}.`
-        );
-      }
-
-      this.credential = new ClientCertificateCredential(tenantId, clientId, {
-        certificatePath,
-        sendCertificateChain: true
-      });
-      this.authMethod = 'client-certificate';
-      this.certificatePath = certificatePath;
-      this.certificateThumbprint = actualThumbprint;
     }
 
     return this.credential;
@@ -261,6 +275,11 @@ class SharePointGraphService {
 
   async listDrives(siteId) {
     const response = await this.requestGraph('GET', `/sites/${encodeURIComponent(siteId)}/drives`);
+    return response.value || [];
+  }
+
+  async listSitePermissions(siteId) {
+    const response = await this.requestGraph('GET', `/sites/${encodeURIComponent(siteId)}/permissions`);
     return response.value || [];
   }
 
@@ -503,6 +522,11 @@ class SharePointGraphService {
       'GET',
       `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/permissions`
     );
+    return response.value || [];
+  }
+
+  async listDriveRootPermissions(driveId) {
+    const response = await this.requestGraph('GET', `/drives/${encodeURIComponent(driveId)}/root/permissions`);
     return response.value || [];
   }
 

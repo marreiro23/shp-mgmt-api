@@ -5,6 +5,7 @@ import sharePointGraphService from '../services/sharepointGraphService.js';
 const originalMethods = {
   listSites: sharePointGraphService.listSites,
   listDrives: sharePointGraphService.listDrives,
+  listSitePermissions: sharePointGraphService.listSitePermissions,
   listLibraries: sharePointGraphService.listLibraries,
   createLibrary: sharePointGraphService.createLibrary,
   updateLibrary: sharePointGraphService.updateLibrary,
@@ -24,6 +25,7 @@ const originalMethods = {
   deleteItem: sharePointGraphService.deleteItem,
   listDriveFilesWithMetadata: sharePointGraphService.listDriveFilesWithMetadata,
   listItemPermissions: sharePointGraphService.listItemPermissions,
+  listDriveRootPermissions: sharePointGraphService.listDriveRootPermissions,
   inviteItemPermissions: sharePointGraphService.inviteItemPermissions,
   deleteItemPermission: sharePointGraphService.deleteItemPermission,
   listTeamChannels: sharePointGraphService.listTeamChannels,
@@ -622,6 +624,72 @@ describe('SharePoint routes integration', () => {
     expect(csv).to.contain('section');
     expect(csv).to.contain('message');
     expect(csv).to.contain('file');
+  });
+
+  it('exports tenant sharepoint inventory as json', async () => {
+    sharePointGraphService.listSites = async () => [{ id: 'site-01', displayName: 'Site A' }];
+    sharePointGraphService.listDrives = async () => [{ id: 'drive-01', name: 'Documentos' }];
+    sharePointGraphService.listChildren = async () => [{ id: 'item-01', name: 'Pasta A', folder: {} }];
+
+    const response = await fetch(`${baseUrl}/api/v1/sharepoint/export?source=tenant-sharepoint-inventory&format=json&search=*&topSites=10&topItemsPerDrive=20`);
+    const data = await response.json();
+
+    expect(response.status).to.equal(200);
+    expect(data.success).to.equal(true);
+    expect(data.data.source).to.equal('tenant-sharepoint-inventory');
+    expect(data.data.summary.sites).to.equal(1);
+    expect(data.data.summary.drives).to.equal(1);
+  });
+
+  it('exports tenant standardized permissions as csv', async () => {
+    sharePointGraphService.listSites = async () => [{ id: 'site-01', displayName: 'Site A' }];
+    sharePointGraphService.listDrives = async () => [{ id: 'drive-01', name: 'Documentos' }];
+    sharePointGraphService.listChildren = async () => [{ id: 'item-01', name: 'Arquivo.txt', file: { mimeType: 'text/plain' } }];
+    sharePointGraphService.listSitePermissions = async () => [{
+      id: 'perm-site-01',
+      roles: ['read'],
+      grantedToV2: { user: { id: 'user-01', email: 'user@example.com', displayName: 'User A' } }
+    }];
+    sharePointGraphService.listDriveRootPermissions = async () => [];
+    sharePointGraphService.listItemPermissions = async () => [{
+      id: 'perm-item-01',
+      roles: ['write'],
+      grantedToV2: { user: { id: 'user-02', email: 'owner@example.com', displayName: 'Owner A' } }
+    }];
+
+    const response = await fetch(`${baseUrl}/api/v1/sharepoint/export?source=tenant-permissions-standard&format=csv&search=*`);
+    const csv = await response.text();
+
+    expect(response.status).to.equal(200);
+    expect(response.headers.get('content-type')).to.contain('text/csv');
+    expect(csv).to.contain('schema');
+    expect(csv).to.contain('sharepoint-permission-v1');
+    expect(csv).to.contain('resourceType');
+  });
+
+  it('imports permissions package into connected tenant', async () => {
+    sharePointGraphService.inviteItemPermissions = async () => ({ id: 'perm-created-01' });
+
+    const { response, data } = await fetchJson('/api/v1/sharepoint/admin-governance/import/permissions-package', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'update',
+        dryRun: false,
+        permissions: [{
+          resourceType: 'file',
+          driveId: 'drive-01',
+          itemId: 'item-01',
+          principalEmail: 'user@example.com',
+          roles: ['read']
+        }]
+      })
+    });
+
+    expect(response.status).to.equal(200);
+    expect(data.success).to.equal(true);
+    expect(data.data.processed).to.equal(1);
+    expect(data.data.updated).to.equal(1);
   });
 
   it('rejects unsupported export source', async () => {

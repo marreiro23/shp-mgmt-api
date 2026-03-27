@@ -78,6 +78,7 @@ Quando acessado sem query string, `/web/index.html` redireciona para
 - `POST /api/v1/sharepoint/admin-governance/compare/preview`
 - `POST /api/v1/sharepoint/admin-governance/compare/execute`
 - `GET /api/v1/sharepoint/admin-governance/compare/export?operationId=<id>&format=csv`
+- `POST /api/v1/sharepoint/admin-governance/import/permissions-package`
 - `GET /api/v1/sharepoint/operations/:operationId`
 - `GET /api/v1/sharepoint/audit/events`
 
@@ -199,8 +200,33 @@ Quando acessado sem query string, `/web/index.html` redireciona para
 - `source=user-licenses` (requer `userId`)
 - `source=item-permissions` (requer `driveId` e `itemId`)
 - `source=team-channel-members` (requer `teamId` e `channelId`)
+- `source=tenant-sharepoint-inventory` (aceita `search`, `topSites`, `topItemsPerDrive`, `includePermissions`, `includeChannelPermissions`, `teamIds`)
+- `source=tenant-permissions-standard` (aceita `search`, `topSites`, `topItemsPerDrive`, `includeChannelPermissions`, `teamIds`)
 
 O endpoint responde com download (`Content-Disposition: attachment`) nos formatos `.json`, `.csv` ou `.xlsx`.
+
+### Importacao de pacote de permissoes/configuracoes
+
+`POST /api/v1/sharepoint/admin-governance/import/permissions-package` recebe um pacote com array
+`permissions` e aplica no tenant conectado (ou simula com `dryRun=true`).
+
+Exemplo:
+
+```json
+{
+  "mode": "update",
+  "dryRun": true,
+  "permissions": [
+    {
+      "resourceType": "file",
+      "driveId": "drive-id",
+      "itemId": "item-id",
+      "principalEmail": "user@example.com",
+      "roles": ["read"]
+    }
+  ]
+}
+```
 
 ## Envelope de erro
 

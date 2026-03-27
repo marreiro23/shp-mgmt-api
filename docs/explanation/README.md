@@ -9,3 +9,8 @@ This section explains architectural decisions, trade-offs and scope boundaries.
 - evolution strategy and compatibility rationale
 
 Use this section for conceptual understanding, not step-by-step execution.
+
+## Available explanations
+
+- [Decisoes de design e limites do escopo](design-e-decisoes.md)
+- [Por que PostgreSQL foi escolhido](postgresql-como-plataforma-de-dados.md)
