@@ -39,7 +39,15 @@ class APITester {
 
   async request(method, path, body = null, expectStatus = 200) {
     return new Promise((resolve) => {
-      const url = new URL(`${API_BASE}${path}`);
+      // Handle full URLs vs relative paths
+      let fullUrl;
+      if (path.startsWith('http')) {
+        fullUrl = path;
+      } else {
+        fullUrl = `${API_BASE}${path}`;
+      }
+      
+      const url = new URL(fullUrl);
       const options = {
         hostname: url.hostname,
         port: url.port,
@@ -141,7 +149,7 @@ class APITester {
 
     // 1. Health Check
     this.log('1. Health and Configuration', 'yellow');
-    const health = await this.test('Health Check', 'GET', '/../../health', null, 200);
+    const health = await this.test('Health Check', 'GET', 'http://localhost:3001/health', null, 200);
     const config = await this.test('Get Configuration', 'GET', '/config', null, 200);
 
     // 2. SharePoint Sites
