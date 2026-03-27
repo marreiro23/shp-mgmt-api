@@ -217,6 +217,266 @@ CREATE TABLE IF NOT EXISTS shp.frontend_commands (
 
 COMMENT ON TABLE shp.frontend_commands IS 'History of create/update/export/import commands triggered by web interfaces';
 
+-- ----------------------------------------------------------------
+-- TABLES: Dedicated SharePoint resources (one table per managed resource)
+-- ----------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_sites (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    site_id                 TEXT            NOT NULL,
+    hostname                TEXT            NULL,
+    display_name            TEXT            NULL,
+    web_url                 TEXT            NULL,
+    is_personal_site        BOOLEAN         NULL,
+    created_date_time       TIMESTAMPTZ     NULL,
+    last_modified_date_time TIMESTAMPTZ     NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, site_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_sites IS 'SharePoint sites managed by API endpoints';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_drives (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    drive_id                TEXT            NOT NULL,
+    site_id                 TEXT            NULL,
+    drive_type              TEXT            NULL,
+    name                    TEXT            NULL,
+    web_url                 TEXT            NULL,
+    quota_total             BIGINT          NULL,
+    quota_used              BIGINT          NULL,
+    quota_remaining         BIGINT          NULL,
+    created_date_time       TIMESTAMPTZ     NULL,
+    last_modified_date_time TIMESTAMPTZ     NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, drive_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_drives IS 'SharePoint drives/libraries root containers managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_libraries (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    list_id                 TEXT            NOT NULL,
+    site_id                 TEXT            NOT NULL,
+    drive_id                TEXT            NULL,
+    name                    TEXT            NULL,
+    description             TEXT            NULL,
+    web_url                 TEXT            NULL,
+    created_date_time       TIMESTAMPTZ     NULL,
+    last_modified_date_time TIMESTAMPTZ     NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, site_id, list_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_libraries IS 'SharePoint document libraries managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_drive_items (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    drive_id                TEXT            NOT NULL,
+    item_id                 TEXT            NOT NULL,
+    parent_item_id          TEXT            NULL,
+    site_id                 TEXT            NULL,
+    name                    TEXT            NULL,
+    web_url                 TEXT            NULL,
+    path                    TEXT            NULL,
+    is_folder               BOOLEAN         NULL,
+    mime_type               TEXT            NULL,
+    size_bytes              BIGINT          NULL,
+    created_by_email        TEXT            NULL,
+    last_modified_by_email  TEXT            NULL,
+    created_date_time       TIMESTAMPTZ     NULL,
+    last_modified_date_time TIMESTAMPTZ     NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, drive_id, item_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_drive_items IS 'SharePoint drive items (files/folders) managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_item_permissions (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    drive_id                TEXT            NOT NULL,
+    item_id                 TEXT            NOT NULL,
+    permission_id           TEXT            NULL,
+    principal_type          TEXT            NULL,
+    principal_id            TEXT            NULL,
+    principal_email         TEXT            NULL,
+    principal_display_name  TEXT            NULL,
+    roles                   JSONB           NOT NULL DEFAULT '[]'::jsonb,
+    inherited_from          JSONB           NULL,
+    link                    JSONB           NULL,
+    invitation              JSONB           NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE shp.sharepoint_item_permissions IS 'Permissions per drive item managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_groups (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    group_id                TEXT            NOT NULL,
+    display_name            TEXT            NULL,
+    mail_nickname           TEXT            NULL,
+    mail                    TEXT            NULL,
+    visibility              TEXT            NULL,
+    security_enabled        BOOLEAN         NULL,
+    group_types             JSONB           NOT NULL DEFAULT '[]'::jsonb,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, group_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_groups IS 'Microsoft 365 / Entra groups managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_group_members (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    group_id                TEXT            NOT NULL,
+    member_id               TEXT            NOT NULL,
+    member_type             TEXT            NULL,
+    member_email            TEXT            NULL,
+    member_display_name     TEXT            NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, group_id, member_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_group_members IS 'Group membership managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_users (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    user_id                 TEXT            NOT NULL,
+    user_principal_name     TEXT            NULL,
+    mail                    TEXT            NULL,
+    display_name            TEXT            NULL,
+    given_name              TEXT            NULL,
+    surname                 TEXT            NULL,
+    job_title               TEXT            NULL,
+    account_enabled         BOOLEAN         NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, user_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_users IS 'Users managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_user_licenses (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    user_id                 TEXT            NOT NULL,
+    sku_id                  TEXT            NOT NULL,
+    sku_part_number         TEXT            NULL,
+    service_plans           JSONB           NOT NULL DEFAULT '[]'::jsonb,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, user_id, sku_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_user_licenses IS 'User license assignments managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_teams (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    team_id                 TEXT            NOT NULL,
+    group_id                TEXT            NULL,
+    display_name            TEXT            NULL,
+    description             TEXT            NULL,
+    web_url                 TEXT            NULL,
+    is_archived             BOOLEAN         NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, team_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_teams IS 'Teams managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_team_channels (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    team_id                 TEXT            NOT NULL,
+    channel_id              TEXT            NOT NULL,
+    display_name            TEXT            NULL,
+    description             TEXT            NULL,
+    membership_type         TEXT            NULL,
+    web_url                 TEXT            NULL,
+    email                   TEXT            NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, team_id, channel_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_team_channels IS 'Team channels managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_channel_members (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    team_id                 TEXT            NOT NULL,
+    channel_id              TEXT            NOT NULL,
+    membership_id           TEXT            NOT NULL,
+    user_id                 TEXT            NULL,
+    user_email              TEXT            NULL,
+    user_display_name       TEXT            NULL,
+    roles                   JSONB           NOT NULL DEFAULT '[]'::jsonb,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, team_id, channel_id, membership_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_channel_members IS 'Channel members managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_channel_messages (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    team_id                 TEXT            NOT NULL,
+    channel_id              TEXT            NOT NULL,
+    message_id              TEXT            NOT NULL,
+    from_id                 TEXT            NULL,
+    from_display_name       TEXT            NULL,
+    summary                 TEXT            NULL,
+    content_type            TEXT            NULL,
+    content                 TEXT            NULL,
+    web_url                 TEXT            NULL,
+    created_date_time       TIMESTAMPTZ     NULL,
+    last_modified_date_time TIMESTAMPTZ     NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, team_id, channel_id, message_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_channel_messages IS 'Channel messages managed by API';
+
+CREATE TABLE IF NOT EXISTS shp.sharepoint_channel_files (
+    id                      BIGSERIAL       PRIMARY KEY,
+    tenant_id               TEXT            NOT NULL,
+    team_id                 TEXT            NOT NULL,
+    channel_id              TEXT            NOT NULL,
+    file_id                 TEXT            NOT NULL,
+    drive_id                TEXT            NULL,
+    item_id                 TEXT            NULL,
+    name                    TEXT            NULL,
+    web_url                 TEXT            NULL,
+    size_bytes              BIGINT          NULL,
+    mime_type               TEXT            NULL,
+    is_folder               BOOLEAN         NULL,
+    created_date_time       TIMESTAMPTZ     NULL,
+    last_modified_date_time TIMESTAMPTZ     NULL,
+    raw_payload             JSONB           NOT NULL DEFAULT '{}'::jsonb,
+    last_seen_at            TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, team_id, channel_id, file_id)
+);
+
+COMMENT ON TABLE shp.sharepoint_channel_files IS 'Files exposed in channel content managed by API';
+
 -- ================================================================
 -- INDEXES
 -- ================================================================
@@ -299,6 +559,67 @@ CREATE INDEX IF NOT EXISTS ix_fc_type_status
 
 CREATE INDEX IF NOT EXISTS ix_fc_surface
     ON shp.frontend_commands (client_surface, created_at DESC);
+
+-- dedicated sharepoint resources
+CREATE INDEX IF NOT EXISTS ix_sps_tenant_site
+    ON shp.sharepoint_sites (tenant_id, site_id);
+
+CREATE INDEX IF NOT EXISTS ix_sps_hostname
+    ON shp.sharepoint_sites (hostname);
+
+CREATE INDEX IF NOT EXISTS ix_spd_tenant_drive
+    ON shp.sharepoint_drives (tenant_id, drive_id);
+
+CREATE INDEX IF NOT EXISTS ix_spd_site
+    ON shp.sharepoint_drives (site_id);
+
+CREATE INDEX IF NOT EXISTS ix_spl_site
+    ON shp.sharepoint_libraries (tenant_id, site_id);
+
+CREATE INDEX IF NOT EXISTS ix_spl_drive
+    ON shp.sharepoint_libraries (drive_id);
+
+CREATE INDEX IF NOT EXISTS ix_spi_drive_item
+    ON shp.sharepoint_drive_items (tenant_id, drive_id, item_id);
+
+CREATE INDEX IF NOT EXISTS ix_spi_parent
+    ON shp.sharepoint_drive_items (tenant_id, drive_id, parent_item_id);
+
+CREATE INDEX IF NOT EXISTS ix_spip_item
+    ON shp.sharepoint_item_permissions (tenant_id, drive_id, item_id);
+
+CREATE INDEX IF NOT EXISTS ix_spip_email
+    ON shp.sharepoint_item_permissions (principal_email);
+
+CREATE INDEX IF NOT EXISTS ix_spg_group
+    ON shp.sharepoint_groups (tenant_id, group_id);
+
+CREATE INDEX IF NOT EXISTS ix_spgm_group
+    ON shp.sharepoint_group_members (tenant_id, group_id);
+
+CREATE INDEX IF NOT EXISTS ix_spu_user
+    ON shp.sharepoint_users (tenant_id, user_id);
+
+CREATE INDEX IF NOT EXISTS ix_spu_upn
+    ON shp.sharepoint_users (user_principal_name);
+
+CREATE INDEX IF NOT EXISTS ix_spul_user
+    ON shp.sharepoint_user_licenses (tenant_id, user_id);
+
+CREATE INDEX IF NOT EXISTS ix_spt_team
+    ON shp.sharepoint_teams (tenant_id, team_id);
+
+CREATE INDEX IF NOT EXISTS ix_sptc_team_channel
+    ON shp.sharepoint_team_channels (tenant_id, team_id, channel_id);
+
+CREATE INDEX IF NOT EXISTS ix_spcm_channel
+    ON shp.sharepoint_channel_members (tenant_id, team_id, channel_id);
+
+CREATE INDEX IF NOT EXISTS ix_spmsg_channel
+    ON shp.sharepoint_channel_messages (tenant_id, team_id, channel_id, created_date_time DESC);
+
+CREATE INDEX IF NOT EXISTS ix_spcf_channel
+    ON shp.sharepoint_channel_files (tenant_id, team_id, channel_id);
 
 -- ================================================================
 -- GRANTS FOR APPLICATION USER (shp_app_user)

@@ -3,6 +3,8 @@ import sharePointGraphService from '../services/sharepointGraphService.js';
 import inventoryDbService from '../services/inventoryDbService.js';
 import pgService from '../services/pgService.js';
 import frontendCommandService from '../services/frontendCommandService.js';
+import resourcePersistenceService from '../services/resourcePersistenceService.js';
+import resourceQueryService from '../services/resourceQueryService.js';
 
 function createCorrelationId(req) {
   return req.headers['x-correlation-id'] || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -357,6 +359,14 @@ function persistInventorySafely(persistFn) {
   }
 }
 
+function persistResourceSafely(persistFn) {
+  Promise.resolve()
+    .then(() => persistFn())
+    .catch(() => {
+      // Persistencia em PostgreSQL nao deve bloquear resposta da API principal.
+    });
+}
+
 export async function getInventoryDatabase(req, res) {
   try {
     const database = inventoryDbService.getDatabase();
@@ -394,10 +404,19 @@ export async function listSites(req, res) {
   try {
     const search = req.query.search || '*';
     const top = req.query.top ? parseInt(req.query.top, 10) : 25;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
+
+    if (!refresh) {
+      const cachedSites = await resourceQueryService.listSites({ search, top });
+      if (cachedSites.length > 0) {
+        return res.json({ success: true, count: cachedSites.length, data: cachedSites, dataSource: 'local-db' });
+      }
+    }
 
     const sites = await sharePointGraphService.listSites(search, top);
     persistInventorySafely(() => inventoryDbService.recordSites(sites, { search, top }));
-    return res.json({ success: true, count: sites.length, data: sites });
+    persistResourceSafely(() => resourcePersistenceService.upsertSites(sites));
+    return res.json({ success: true, count: sites.length, data: sites, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar sites SharePoint.');
   }
@@ -413,9 +432,19 @@ export async function listDrives(req, res) {
       });
     }
 
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
+
+    if (!refresh) {
+      const cachedDrives = await resourceQueryService.listDrives(siteId);
+      if (cachedDrives.length > 0) {
+        return res.json({ success: true, count: cachedDrives.length, data: cachedDrives, dataSource: 'local-db' });
+      }
+    }
+
     const drives = await sharePointGraphService.listDrives(siteId);
     persistInventorySafely(() => inventoryDbService.recordDrives(siteId, drives));
-    return res.json({ success: true, count: drives.length, data: drives });
+    persistResourceSafely(() => resourcePersistenceService.upsertDrives(siteId, drives));
+    return res.json({ success: true, count: drives.length, data: drives, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar bibliotecas do site SharePoint.');
   }
@@ -428,9 +457,19 @@ export async function listLibraries(req, res) {
       return sendValidationError(res, req, 'siteId é obrigatório.');
     }
 
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
+
+    if (!refresh) {
+      const cachedLibraries = await resourceQueryService.listLibraries(siteId);
+      if (cachedLibraries.length > 0) {
+        return res.json({ success: true, count: cachedLibraries.length, data: cachedLibraries, dataSource: 'local-db' });
+      }
+    }
+
     const libraries = await sharePointGraphService.listLibraries(siteId);
     persistInventorySafely(() => inventoryDbService.recordLibraries(siteId, libraries));
-    return res.json({ success: true, count: libraries.length, data: libraries });
+    persistResourceSafely(() => resourcePersistenceService.upsertLibraries(siteId, libraries));
+    return res.json({ success: true, count: libraries.length, data: libraries, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar bibliotecas do site SharePoint.');
   }
@@ -452,6 +491,7 @@ export async function createLibrary(req, res) {
     });
 
     persistInventorySafely(() => inventoryDbService.recordLibrary(created, siteId));
+    persistResourceSafely(() => resourcePersistenceService.upsertLibraries(siteId, [created]));
 
     return res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -474,6 +514,7 @@ export async function updateLibrary(req, res) {
 
     const updated = await sharePointGraphService.updateLibrary(siteId, listId, req.body || {});
     persistInventorySafely(() => inventoryDbService.recordLibrary(updated, siteId));
+    persistResourceSafely(() => resourcePersistenceService.upsertLibraries(siteId, [updated]));
     return res.json({ success: true, data: updated });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao atualizar biblioteca SharePoint.');
@@ -503,6 +544,12 @@ export async function createDrive(req, res) {
         inventoryDbService.recordLibrary(created, siteId);
       }
     });
+    persistResourceSafely(() => {
+      if (created?.drive) {
+        return resourcePersistenceService.upsertDrives(siteId, [created.drive]);
+      }
+      return resourcePersistenceService.upsertLibraries(siteId, [created]);
+    });
 
     return res.status(201).json({ success: true, data: created });
   } catch (error) {
@@ -525,6 +572,7 @@ export async function updateDrive(req, res) {
 
     const updated = await sharePointGraphService.updateDrive(driveId, req.body || {});
     persistInventorySafely(() => inventoryDbService.recordDrive(updated));
+    persistResourceSafely(() => resourcePersistenceService.upsertDrives(null, [updated]));
     return res.json({ success: true, data: updated });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao atualizar drive SharePoint.');
@@ -535,6 +583,7 @@ export async function listDriveChildren(req, res) {
   try {
     const { driveId } = req.params;
     const path = req.query.path || '';
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
 
     if (!driveId) {
       return res.status(400).json({
@@ -543,9 +592,17 @@ export async function listDriveChildren(req, res) {
       });
     }
 
+    if (!refresh) {
+      const cachedItems = await resourceQueryService.listDriveItems(driveId, { path, top: 500, filesOnly: false });
+      if (cachedItems.length > 0) {
+        return res.json({ success: true, count: cachedItems.length, data: cachedItems, dataSource: 'local-db' });
+      }
+    }
+
     const items = await sharePointGraphService.listChildren(driveId, path);
     persistInventorySafely(() => inventoryDbService.recordFiles(driveId, items, { path, source: 'children' }));
-    return res.json({ success: true, count: items.length, data: items });
+    persistResourceSafely(() => resourcePersistenceService.upsertDriveItems(driveId, items, { path }));
+    return res.json({ success: true, count: items.length, data: items, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar itens da biblioteca SharePoint.');
   }
@@ -565,6 +622,7 @@ export async function createFolder(req, res) {
 
     const folder = await sharePointGraphService.createFolder(driveId, name, parentPath || '');
     persistInventorySafely(() => inventoryDbService.recordFiles(driveId, [folder], { path: parentPath || '', source: 'create-folder' }));
+    persistResourceSafely(() => resourcePersistenceService.upsertDriveItems(driveId, [folder], { path: parentPath || '' }));
     return res.status(201).json({ success: true, data: folder });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao criar pasta no SharePoint.');
@@ -591,6 +649,7 @@ export async function uploadFile(req, res) {
     );
 
     persistInventorySafely(() => inventoryDbService.recordFiles(driveId, [item], { path: parentPath || '', source: 'upload-file' }));
+    persistResourceSafely(() => resourcePersistenceService.upsertDriveItems(driveId, [item], { path: parentPath || '' }));
 
     return res.status(201).json({ success: true, data: item });
   } catch (error) {
@@ -612,6 +671,7 @@ export async function renameItem(req, res) {
 
     const updated = await sharePointGraphService.renameItem(driveId, itemId, newName);
     persistInventorySafely(() => inventoryDbService.recordFiles(driveId, [updated], { source: 'rename-item' }));
+    persistResourceSafely(() => resourcePersistenceService.upsertDriveItems(driveId, [updated]));
     return res.json({ success: true, data: updated });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao renomear item no SharePoint.');
@@ -630,6 +690,7 @@ export async function deleteItem(req, res) {
     }
 
     await sharePointGraphService.deleteItem(driveId, itemId);
+    persistResourceSafely(() => resourcePersistenceService.deleteDriveItem(driveId, itemId));
     return res.status(204).send();
   } catch (error) {
     return sendError(res, req, error, 'Falha ao excluir item no SharePoint.');
@@ -641,17 +702,32 @@ export async function listFilesMetadata(req, res) {
     const { driveId } = req.params;
     const path = req.query.path || '';
     const top = req.query.top ? parseInt(req.query.top, 10) : 100;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
 
     if (!driveId) {
       return sendValidationError(res, req, 'driveId é obrigatório.');
     }
 
+    if (!refresh) {
+      const cachedItems = await resourceQueryService.listDriveItems(driveId, { path, top, filesOnly: true });
+      if (cachedItems.length > 0) {
+        return res.json({
+          success: true,
+          count: cachedItems.length,
+          data: cachedItems,
+          dataSource: 'local-db'
+        });
+      }
+    }
+
     const items = await sharePointGraphService.listDriveFilesWithMetadata(driveId, path, top);
     persistInventorySafely(() => inventoryDbService.recordFiles(driveId, items, { path, source: 'files-metadata' }));
+    persistResourceSafely(() => resourcePersistenceService.upsertDriveItems(driveId, items, { path }));
     return res.json({
       success: true,
       count: items.length,
-      data: items
+      data: items,
+      dataSource: 'graph'
     });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar arquivos e metadados do drive SharePoint.');
@@ -662,8 +738,18 @@ export async function listGroups(req, res) {
   try {
     const search = req.query.search || '';
     const top = req.query.top ? parseInt(req.query.top, 10) : 25;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
+
+    if (!refresh) {
+      const cachedGroups = await resourceQueryService.listGroups({ search, top });
+      if (cachedGroups.length > 0) {
+        return res.json({ success: true, count: cachedGroups.length, data: cachedGroups, dataSource: 'local-db' });
+      }
+    }
+
     const groups = await sharePointGraphService.listGroups(search, top);
-    return res.json({ success: true, count: groups.length, data: groups });
+    persistResourceSafely(() => resourcePersistenceService.upsertGroups(groups));
+    return res.json({ success: true, count: groups.length, data: groups, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar grupos Entra ID.');
   }
@@ -685,6 +771,8 @@ export async function createGroup(req, res) {
       groupTypes: Array.isArray(req.body.groupTypes) ? req.body.groupTypes : []
     });
 
+    persistResourceSafely(() => resourcePersistenceService.upsertGroups([created]));
+
     return res.status(201).json({ success: true, data: created });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao criar grupo Entra ID.');
@@ -699,6 +787,7 @@ export async function updateGroup(req, res) {
     }
 
     const updated = await sharePointGraphService.updateGroup(groupId, req.body || {});
+    persistResourceSafely(() => resourcePersistenceService.upsertGroups([updated]));
     return res.json({ success: true, data: updated });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao atualizar grupo Entra ID.');
@@ -709,8 +798,18 @@ export async function listUsers(req, res) {
   try {
     const search = req.query.search || '';
     const top = req.query.top ? parseInt(req.query.top, 10) : 25;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
+
+    if (!refresh) {
+      const cachedUsers = await resourceQueryService.listUsers({ search, top });
+      if (cachedUsers.length > 0) {
+        return res.json({ success: true, count: cachedUsers.length, data: cachedUsers, dataSource: 'local-db' });
+      }
+    }
+
     const users = await sharePointGraphService.listUsers(search, top);
-    return res.json({ success: true, count: users.length, data: users });
+    persistResourceSafely(() => resourcePersistenceService.upsertUsers(users));
+    return res.json({ success: true, count: users.length, data: users, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar usuários.');
   }
@@ -724,6 +823,7 @@ export async function updateUser(req, res) {
     }
 
     const updated = await sharePointGraphService.updateUser(userId, req.body || {});
+    persistResourceSafely(() => resourcePersistenceService.upsertUsers([updated]));
     return res.json({ success: true, data: updated });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao atualizar usuário.');
@@ -733,12 +833,21 @@ export async function updateUser(req, res) {
 export async function listUserLicenses(req, res) {
   try {
     const { userId } = req.params;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
     if (!userId) {
       return sendValidationError(res, req, 'userId é obrigatório.');
     }
 
+    if (!refresh) {
+      const cachedLicenses = await resourceQueryService.listUserLicenses(userId);
+      if (cachedLicenses.length > 0) {
+        return res.json({ success: true, count: cachedLicenses.length, data: cachedLicenses, dataSource: 'local-db' });
+      }
+    }
+
     const licenses = await sharePointGraphService.listUserLicenses(userId);
-    return res.json({ success: true, count: licenses.length, data: licenses });
+    persistResourceSafely(() => resourcePersistenceService.replaceUserLicenses(userId, licenses));
+    return res.json({ success: true, count: licenses.length, data: licenses, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar licenças do usuário.');
   }
@@ -754,6 +863,10 @@ export async function assignUserLicenses(req, res) {
     const addLicenses = Array.isArray(req.body.addLicenses) ? req.body.addLicenses : [];
     const removeLicenses = Array.isArray(req.body.removeLicenses) ? req.body.removeLicenses : [];
     const result = await sharePointGraphService.assignUserLicenses(userId, addLicenses, removeLicenses);
+    persistResourceSafely(async () => {
+      const refreshed = await sharePointGraphService.listUserLicenses(userId);
+      await resourcePersistenceService.replaceUserLicenses(userId, refreshed);
+    });
     return res.json({ success: true, data: result });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao alterar licenças do usuário.');
@@ -763,12 +876,21 @@ export async function assignUserLicenses(req, res) {
 export async function listItemPermissions(req, res) {
   try {
     const { driveId, itemId } = req.params;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
     if (!driveId || !itemId) {
       return sendValidationError(res, req, 'driveId e itemId são obrigatórios.');
     }
 
+    if (!refresh) {
+      const cachedPermissions = await resourceQueryService.listItemPermissions(driveId, itemId);
+      if (cachedPermissions.length > 0) {
+        return res.json({ success: true, count: cachedPermissions.length, data: cachedPermissions, dataSource: 'local-db' });
+      }
+    }
+
     const permissions = await sharePointGraphService.listItemPermissions(driveId, itemId);
-    return res.json({ success: true, count: permissions.length, data: permissions });
+    persistResourceSafely(() => resourcePersistenceService.replaceItemPermissions(driveId, itemId, permissions));
+    return res.json({ success: true, count: permissions.length, data: permissions, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar permissões do item.');
   }
@@ -791,6 +913,11 @@ export async function createItemPermission(req, res) {
       req.body.message || ''
     );
 
+    persistResourceSafely(async () => {
+      const refreshed = await sharePointGraphService.listItemPermissions(driveId, itemId);
+      await resourcePersistenceService.replaceItemPermissions(driveId, itemId, refreshed);
+    });
+
     return res.status(201).json({ success: true, data: created });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao criar permissão para o item.');
@@ -805,6 +932,7 @@ export async function deleteItemPermission(req, res) {
     }
 
     await sharePointGraphService.deleteItemPermission(driveId, itemId, permissionId);
+    persistResourceSafely(() => resourcePersistenceService.deleteItemPermission(driveId, itemId, permissionId));
     return res.status(204).send();
   } catch (error) {
     return sendError(res, req, error, 'Falha ao remover permissão do item.');
@@ -814,12 +942,24 @@ export async function deleteItemPermission(req, res) {
 export async function listTeamChannels(req, res) {
   try {
     const { teamId } = req.params;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
     if (!teamId) {
       return sendValidationError(res, req, 'teamId é obrigatório.');
     }
 
+    if (!refresh) {
+      const cachedChannels = await resourceQueryService.listTeamChannels(teamId);
+      if (cachedChannels.length > 0) {
+        return res.json({ success: true, count: cachedChannels.length, data: cachedChannels, dataSource: 'local-db' });
+      }
+    }
+
     const channels = await sharePointGraphService.listTeamChannels(teamId);
-    return res.json({ success: true, count: channels.length, data: channels });
+    persistResourceSafely(async () => {
+      await resourcePersistenceService.ensureTeam(teamId, {});
+      await resourcePersistenceService.upsertTeamChannels(teamId, channels);
+    });
+    return res.json({ success: true, count: channels.length, data: channels, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar canais do Microsoft Teams.');
   }
@@ -839,6 +979,11 @@ export async function createTeamChannel(req, res) {
       membershipType: req.body.membershipType || 'standard'
     });
 
+    persistResourceSafely(async () => {
+      await resourcePersistenceService.ensureTeam(teamId, {});
+      await resourcePersistenceService.upsertTeamChannels(teamId, [created]);
+    });
+
     return res.status(201).json({ success: true, data: created });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao criar canal do Teams.');
@@ -853,6 +998,10 @@ export async function updateTeamChannel(req, res) {
     }
 
     const updated = await sharePointGraphService.updateTeamChannel(teamId, channelId, req.body || {});
+    persistResourceSafely(async () => {
+      await resourcePersistenceService.ensureTeam(teamId, {});
+      await resourcePersistenceService.upsertTeamChannels(teamId, [updated]);
+    });
     return res.json({ success: true, data: updated });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao atualizar canal do Teams.');
@@ -862,12 +1011,24 @@ export async function updateTeamChannel(req, res) {
 export async function listChannelMembers(req, res) {
   try {
     const { teamId, channelId } = req.params;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
     if (!teamId || !channelId) {
       return sendValidationError(res, req, 'teamId e channelId são obrigatórios.');
     }
 
+    if (!refresh) {
+      const cachedMembers = await resourceQueryService.listChannelMembers(teamId, channelId);
+      if (cachedMembers.length > 0) {
+        return res.json({ success: true, count: cachedMembers.length, data: cachedMembers, dataSource: 'local-db' });
+      }
+    }
+
     const members = await sharePointGraphService.listChannelMembers(teamId, channelId);
-    return res.json({ success: true, count: members.length, data: members });
+    persistResourceSafely(async () => {
+      await resourcePersistenceService.ensureTeam(teamId, {});
+      await resourcePersistenceService.replaceChannelMembers(teamId, channelId, members);
+    });
+    return res.json({ success: true, count: members.length, data: members, dataSource: 'graph' });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar membros do canal do Teams.');
   }
@@ -877,12 +1038,36 @@ export async function listChannelContent(req, res) {
   try {
     const { teamId, channelId } = req.params;
     const topMessages = req.query.topMessages ? parseInt(req.query.topMessages, 10) : 25;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
 
     if (!teamId || !channelId) {
       return sendValidationError(res, req, 'teamId e channelId são obrigatórios.');
     }
 
+    if (!refresh) {
+      const cachedContent = await resourceQueryService.listChannelContent(teamId, channelId, topMessages);
+      if ((cachedContent.messages || []).length > 0 || (cachedContent.files || []).length > 0) {
+        return res.json({
+          success: true,
+          data: {
+            teamId,
+            channelId,
+            filesFolder: cachedContent.filesFolder,
+            messagesCount: cachedContent.messages.length,
+            filesCount: cachedContent.files.length,
+            messages: cachedContent.messages,
+            files: cachedContent.files
+          },
+          dataSource: 'local-db'
+        });
+      }
+    }
+
     const content = await sharePointGraphService.listChannelContent(teamId, channelId, topMessages);
+    persistResourceSafely(async () => {
+      await resourcePersistenceService.ensureTeam(teamId, {});
+      await resourcePersistenceService.upsertChannelContent(teamId, channelId, content);
+    });
     return res.json({
       success: true,
       data: {
@@ -893,7 +1078,8 @@ export async function listChannelContent(req, res) {
         filesCount: content.files.length,
         messages: content.messages,
         files: content.files
-      }
+      },
+      dataSource: 'graph'
     });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar conteúdo do canal do Microsoft Teams.');
@@ -910,6 +1096,10 @@ export async function addTeamChannelMember(req, res) {
     }
 
     const member = await sharePointGraphService.addChannelMember(teamId, channelId, userId, roles || []);
+    persistResourceSafely(async () => {
+      const members = await sharePointGraphService.listChannelMembers(teamId, channelId);
+      await resourcePersistenceService.replaceChannelMembers(teamId, channelId, members);
+    });
     return res.status(201).json({ success: true, data: member });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao adicionar membro no canal do Teams.');
@@ -924,6 +1114,7 @@ export async function removeTeamChannelMember(req, res) {
     }
 
     await sharePointGraphService.removeChannelMember(teamId, channelId, membershipId);
+    persistResourceSafely(() => resourcePersistenceService.removeChannelMember(teamId, channelId, membershipId));
     return res.status(204).send();
   } catch (error) {
     return sendError(res, req, error, 'Falha ao remover membro do canal do Teams.');
@@ -940,6 +1131,7 @@ export async function addEntraGroupMember(req, res) {
     }
 
     await sharePointGraphService.addGroupMember(groupId, memberObjectId);
+    persistResourceSafely(() => resourcePersistenceService.upsertGroupMember(groupId, memberObjectId));
     return res.status(201).json({
       success: true,
       data: {
@@ -962,6 +1154,7 @@ export async function removeEntraGroupMember(req, res) {
     }
 
     await sharePointGraphService.removeGroupMember(groupId, memberObjectId);
+    persistResourceSafely(() => resourcePersistenceService.removeGroupMember(groupId, memberObjectId));
     return res.status(204).send();
   } catch (error) {
     return sendError(res, req, error, 'Falha ao remover membro do grupo Entra ID.');
@@ -1176,6 +1369,82 @@ export async function exportResults(req, res) {
       return sendValidationError(res, req, 'source inválido. Valores suportados: drive-files, site-drives, site-libraries, team-channels, team-channel-content, groups, users, user-licenses, item-permissions, team-channel-members, tenant-sharepoint-inventory, tenant-permissions-standard.');
     }
 
+    persistResourceSafely(async () => {
+      if (source === 'drive-files') {
+        await resourcePersistenceService.upsertDriveItems(String(req.query.driveId || ''), rowsForCsv || [], {
+          path: String(req.query.path || '')
+        });
+      } else if (source === 'site-drives') {
+        await resourcePersistenceService.upsertDrives(String(req.query.siteId || ''), rowsForCsv || []);
+      } else if (source === 'site-libraries') {
+        await resourcePersistenceService.upsertLibraries(String(req.query.siteId || ''), rowsForCsv || []);
+      } else if (source === 'groups') {
+        await resourcePersistenceService.upsertGroups(rowsForCsv || []);
+      } else if (source === 'users') {
+        await resourcePersistenceService.upsertUsers(rowsForCsv || []);
+      } else if (source === 'user-licenses') {
+        await resourcePersistenceService.replaceUserLicenses(String(req.query.userId || ''), payload?.data || []);
+      } else if (source === 'item-permissions') {
+        await resourcePersistenceService.replaceItemPermissions(
+          String(req.query.driveId || ''),
+          String(req.query.itemId || ''),
+          payload?.data || []
+        );
+      } else if (source === 'team-channels') {
+        const teamId = String(req.query.teamId || '');
+        await resourcePersistenceService.ensureTeam(teamId, {});
+        await resourcePersistenceService.upsertTeamChannels(teamId, rowsForCsv || []);
+      } else if (source === 'team-channel-members') {
+        await resourcePersistenceService.replaceChannelMembers(
+          String(req.query.teamId || ''),
+          String(req.query.channelId || ''),
+          payload?.data || []
+        );
+      } else if (source === 'team-channel-content') {
+        await resourcePersistenceService.upsertChannelContent(
+          String(req.query.teamId || ''),
+          String(req.query.channelId || ''),
+          payload || {}
+        );
+      } else if (source === 'tenant-sharepoint-inventory') {
+        await resourcePersistenceService.upsertSites(payload?.data?.sites || []);
+        await resourcePersistenceService.upsertDrives(null, payload?.data?.drives || []);
+        await resourcePersistenceService.upsertDriveItems('', [
+          ...(payload?.data?.files || []),
+          ...(payload?.data?.folders || [])
+        ]);
+        for (const channel of payload?.data?.channels || []) {
+          await resourcePersistenceService.upsertTeamChannels(channel.teamId, [channel]);
+        }
+      } else if (source === 'tenant-permissions-standard') {
+        const grouped = new Map();
+        for (const row of payload?.data?.permissions || []) {
+          if (!row?.driveId || !row?.itemId) continue;
+          const key = `${row.driveId}::${row.itemId}`;
+          if (!grouped.has(key)) grouped.set(key, []);
+          grouped.get(key).push({
+            id: row.permissionId || null,
+            roles: row.roles || [],
+            inheritedFrom: row.inheritedFrom || null,
+            link: row.link || null,
+            invitation: row.invitation || null,
+            grantedToV2: {
+              user: {
+                id: row.principalId || null,
+                email: row.principalEmail || null,
+                displayName: row.principalDisplayName || null
+              }
+            }
+          });
+        }
+
+        for (const [key, permissions] of grouped.entries()) {
+          const [driveId, itemId] = key.split('::');
+          await resourcePersistenceService.replaceItemPermissions(driveId, itemId, permissions);
+        }
+      }
+    });
+
     const now = new Date().toISOString().replace(/[:.]/g, '-');
     const fileBase = `${source}-${now}`;
 
@@ -1249,6 +1518,10 @@ export async function importConfigurationAndPermissions(req, res) {
           }
 
           await sharePointGraphService.addChannelMember(teamId, channelId, userId, Array.isArray(row.roles) ? row.roles : []);
+          persistResourceSafely(async () => {
+            const members = await sharePointGraphService.listChannelMembers(teamId, channelId);
+            await resourcePersistenceService.replaceChannelMembers(teamId, channelId, members);
+          });
           result.updated += 1;
           result.details.push({ resourceType, action: 'add-member', teamId, channelId, userId });
           continue;
@@ -1277,6 +1550,10 @@ export async function importConfigurationAndPermissions(req, res) {
         }
 
         await sharePointGraphService.inviteItemPermissions(driveId, itemId, [{ email: principalEmail }], roles, 'Imported by permission package');
+        persistResourceSafely(async () => {
+          const permissions = await sharePointGraphService.listItemPermissions(driveId, itemId);
+          await resourcePersistenceService.replaceItemPermissions(driveId, itemId, permissions);
+        });
         result.updated += 1;
         result.details.push({ resourceType, action: 'invite', driveId, itemId, principalEmail, roles });
       } catch (error) {
