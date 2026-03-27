@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>shp-mgmt-api - Operations Center</title>
+  <style>
+    :root {
+      --bg: #d9d9d9;
+      --panel: #efefef;
+      --panel-2: #f7f7f7;
+      --line: #a9a9a9;
+      --line-soft: #c8c8c8;
+      --ink: #111;
+      --ink-soft: #555;
+      --action: #0f6a73;
+      --action-alt: #2867a0;
+      --danger: #9a2e2e;
+      --ok: #2f6f3e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+    }
+
+    .window {
+      width: min(1500px, 98vw);
+      margin: 10px auto;
+      border: 1px solid #8f8f8f;
+      background: #f0f0f0;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      min-height: calc(100vh - 20px);
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .titlebar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #f4f4f4;
+      font-size: 14px;
+    }
+
+    .titlebar strong {
+      font-size: 18px;
+      letter-spacing: 0.2px;
+    }
+
+    .menubar {
+      display: flex;
+      gap: 14px;
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #ececec;
+      font-size: 13px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 0;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: #e4e4e4;
+      padding: 10px;
+      overflow: auto;
+    }
+
+    .sidebar h2 {
+      margin: 0 0 8px;
+      font-size: 21px;
+      font-weight: 600;
+    }
+
+    .nav-item {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #f3f3f3;
+      color: var(--ink);
+      text-align: left;
+      margin-bottom: 6px;
+      padding: 9px 10px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .nav-item.active {
+      background: #d0d0d0;
+      border-color: #8e8e8e;
+      font-weight: 600;
+    }
+
+    .content {
+      padding: 10px;
+      overflow: auto;
+      background: var(--panel);
+    }
+
+    .page {
+      display: none;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      min-height: calc(100vh - 120px);
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      background: #e9e9e9;
+    }
+
+    .tab {
+      border: 1px solid var(--line);
+      border-bottom: none;
+      background: #dedede;
+      padding: 9px 14px;
+      cursor: pointer;
+      margin-right: 4px;
+      margin-top: 4px;
+      margin-left: 4px;
+      font-size: 14px;
+    }
+
+    .tab.active {
+      background: #f7f7f7;
+      font-weight: 600;
+    }
+
+    .tab-panel {
+      display: none;
+      padding: 12px;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .section {
+      border: 1px solid var(--line-soft);
+      background: #fff;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .section h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--ink-soft);
+      margin-bottom: 3px;
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      width: 100%;
+      font: inherit;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 8px;
+      border-radius: 0;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .button-row button {
+      width: auto;
+      min-width: 170px;
+      padding: 8px 12px;
+      border: 1px solid #3a3a3a;
+      color: #fff;
+      cursor: pointer;
+      background: var(--action);
+    }
+
+    .button-row .secondary {
+      background: var(--action-alt);
+    }
+
+    .button-row .danger {
+      background: var(--danger);
+    }
+
+    .button-row .ok {
+      background: var(--ok);
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .status {
+      border: 1px solid var(--line-soft);
+      background: #fff;
+      padding: 8px;
+      min-height: 70px;
+      font-size: 13px;
+    }
+
+    .output {
+      border: 1px solid var(--line);
+      background: #111820;
+      color: #d9f1ff;
+      padding: 10px;
+      min-height: 380px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+    }
+
+    .top-links {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .top-links a {
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      text-decoration: none;
+      color: #222;
+      background: #efefef;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .page {
+        min-height: auto;
+      }
+
+      .output {
+        min-height: 240px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="window">
+    <header class="titlebar">
+      <strong>SharePoint Operations Center</strong>
+      <span>shp-mgmt-api | modelo operacional inspirado em IntuneManagement</span>
+    </header>
+
+    <nav class="menubar">
+      <span>File</span>
+      <span>Views</span>
+      <span>Operations</span>
+      <span>Governance</span>
+      <span>Help</span>
+    </nav>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>API Tools</h2>
+        <button class="nav-item active" data-page="homePage" type="button">Overview</button>
+        <button class="nav-item" data-page="sharepointPage" type="button">SharePoint Explorer</button>
+        <button class="nav-item" data-page="collabPage" type="button">Teams and Entra</button>
+        <button class="nav-item" data-page="importPage" type="button">Import Jobs</button>
+        <button class="nav-item" data-page="comparePage" type="button">Compare Jobs</button>
+        <button class="nav-item" data-page="operationsPage" type="button">Operations Monitor</button>
+        <button class="nav-item" data-page="auditPage" type="button">Audit Trail</button>
+        <button class="nav-item" data-page="exportPage" type="button">Export Center</button>
+      </aside>
+
+      <section class="content">
+        <article class="page active" id="homePage">
+          <div class="tabs">
+            <button class="tab active" data-tab="homeStatus" type="button">Status</button>
+            <button class="tab" data-tab="homeQuick" type="button">Quick Actions</button>
+          </div>
+          <div class="tab-panel active" id="homeStatus">
+            <div class="section">
+              <h3>API status</h3>
+              <div class="status-grid">
+                <div class="status"><strong>Health</strong><div id="homeHealth">-</div></div>
+                <div class="status"><strong>Auth</strong><div id="homeAuth">-</div></div>
+                <div class="status"><strong>Environment</strong><div id="homeEnv">-</div></div>
+              </div>
+              <div class="button-row">
+                <button id="btnHomeHealth" type="button">Get health</button>
+                <button id="btnHomeConfig" class="secondary" type="button">Get SharePoint config</button>
+                <button id="btnHomeAuth" class="ok" type="button">Authenticate Graph</button>
+              </div>
+            </div>
+            <div class="section">
+              <h3>Output</h3>
+              <pre class="output" id="mainOutput">Aguardando acao...</pre>
+            </div>
+          </div>
+          <div class="tab-panel" id="homeQuick">
+            <div class="section">
+              <h3>Navigation</h3>
+              <p>Use a interface lateral para alternar entre os modulos de operacao, governanca, auditoria e exportacao.</p>
+              <div class="top-links">
+                <a href="index.html">Home original</a>
+                <a href="operations.html">Operations page</a>
+                <a href="collaboration.html">Collaboration page</a>
+                <a href="admin.html">Admin page</a>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="sharepointPage">
+          <div class="tabs">
+            <button class="tab active" data-tab="spSites" type="button">Sites and Drives</button>
+            <button class="tab" data-tab="spFiles" type="button">Files and Folders</button>
+          </div>
+
+          <div class="tab-panel active" id="spSites">
+            <div class="section">
+              <h3>Search SharePoint sites</h3>
+              <div class="grid">
+                <div><label>Search</label><input id="spSiteSearch" value="*"></div>
+                <div><label>Top</label><input id="spSiteTop" value="10"></div>
+                <div><label>Site ID</label><input id="spSiteId" placeholder="site-id"></div>
+                <div><label>Drive Name</label><input id="spDriveName" placeholder="Drive Operacional"></div>
+                <div><label>Drive Description</label><input id="spDriveDescription" placeholder="Descricao opcional"></div>
+              </div>
+              <div class="button-row">
+                <button id="btnSpListSites" type="button">List sites</button>
+                <button id="btnSpListDrives" class="secondary" type="button">List drives</button>
+                <button id="btnSpCreateDrive" class="ok" type="button">Create drive</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="spFiles">
+            <div class="section">
+              <h3>Drive content operations</h3>
+              <div class="grid">
+                <div><label>Drive ID</label><input id="spDriveId" placeholder="drive-id"></div>
+                <div><label>Path</label><input id="spPath" placeholder="Documentos/Projeto"></div>
+                <div><label>Folder name</label><input id="spFolderName" placeholder="NovaPasta"></div>
+                <div><label>File name</label><input id="spFileName" placeholder="nota.txt"></div>
+                <div><label>Item ID</label><input id="spItemId" placeholder="item-id"></div>
+                <div><label>New name</label><input id="spNewName" placeholder="novo-nome.txt"></div>
+              </div>
+              <label>File content</label>
+              <textarea id="spFileContent" placeholder="Conteudo do arquivo de texto"></textarea>
+              <div class="button-row">
+                <button id="btnSpListChildren" type="button">List children</button>
+                <button id="btnSpCreateFolder" class="secondary" type="button">Create folder</button>
+                <button id="btnSpUploadFile" class="ok" type="button">Upload file</button>
+                <button id="btnSpRename" class="secondary" type="button">Rename item</button>
+                <button id="btnSpDelete" class="danger" type="button">Delete item</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="collabPage">
+          <div class="tabs">
+            <button class="tab active" data-tab="colTeams" type="button">Teams</button>
+            <button class="tab" data-tab="colGroups" type="button">Groups and Users</button>
+          </div>
+          <div class="tab-panel active" id="colTeams">
+            <div class="section">
+              <h3>Teams channels and members</h3>
+              <div class="grid">
+                <div><label>Team ID</label><input id="colTeamId" placeholder="team-id"></div>
+                <div><label>Channel ID</label><input id="colChannelId" placeholder="channel-id"></div>
+                <div><label>User ID</label><input id="colUserId" placeholder="user-id for member add"></div>
+                <div><label>Membership ID</label><input id="colMembershipId" placeholder="membership-id for remove"></div>
+              </div>
+              <div class="button-row">
+                <button id="btnColListChannels" type="button">List channels</button>
+                <button id="btnColListMembers" class="secondary" type="button">List members</button>
+                <button id="btnColListContent" class="secondary" type="button">List channel content</button>
+                <button id="btnColAddMember" class="ok" type="button">Add member</button>
+                <button id="btnColRemoveMember" class="danger" type="button">Remove member</button>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel" id="colGroups">
+            <div class="section">
+              <h3>Groups, users and licenses</h3>
+              <div class="grid">
+                <div><label>Group search</label><input id="colGroupSearch" placeholder="Financeiro"></div>
+                <div><label>Top</label><input id="colTop" value="25"></div>
+                <div><label>Group ID</label><input id="colGroupId" placeholder="group-id"></div>
+                <div><label>Member Object ID</label><input id="colMemberObjectId" placeholder="directory-object-id"></div>
+                <div><label>User search</label><input id="colUserSearch" placeholder="Maria"></div>
+                <div><label>User ID for licenses</label><input id="colLicenseUserId" placeholder="user-id"></div>
+                <div><label>SKU add</label><input id="colSkuAdd" placeholder="sku-guid"></div>
+                <div><label>SKU remove</label><input id="colSkuRemove" placeholder="sku-guid"></div>
+              </div>
+              <div class="button-row">
+                <button id="btnColListGroups" type="button">List groups</button>
+                <button id="btnColAddGroupMember" class="ok" type="button">Add group member</button>
+                <button id="btnColRemoveGroupMember" class="danger" type="button">Remove group member</button>
+                <button id="btnColListUsers" class="secondary" type="button">List users</button>
+                <button id="btnColListLicenses" class="secondary" type="button">List licenses</button>
+                <button id="btnColAssignLicenses" class="ok" type="button">Assign licenses</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="importPage">
+          <div class="tabs">
+            <button class="tab active" data-tab="impSetup" type="button">Import Setup</button>
+            <button class="tab" data-tab="impRun" type="button">Import Run</button>
+          </div>
+          <div class="tab-panel active" id="impSetup">
+            <div class="section">
+              <h3>Import package payload</h3>
+              <div class="grid">
+                <div><label>Mode</label>
+                  <select id="impMode">
+                    <option value="always">always</option>
+                    <option value="skip-if-exists">skip-if-exists</option>
+                    <option value="update">update</option>
+                    <option value="replace-safe">replace-safe</option>
+                  </select>
+                </div>
+                <div><label>Dry run</label>
+                  <select id="impDryRun">
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                </div>
+                <div><label>Source tenant</label><input id="impSourceTenant" placeholder="tenant-or-name"></div>
+                <div><label>Target tenant</label><input id="impTargetTenant" placeholder="tenant-or-name"></div>
+              </div>
+              <label>Objects JSON</label>
+              <textarea id="impObjects">[
+  { "type": "library", "siteId": "site-id", "name": "Contratos" },
+  { "type": "folder", "driveId": "drive-id", "parentPath": "Documentos", "name": "PadraoPastas" }
+]</textarea>
+              <div class="button-row">
+                <button id="btnImpPreview" type="button">Preview import</button>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel" id="impRun">
+            <div class="section">
+              <h3>Execute import operation</h3>
+              <div class="button-row">
+                <button id="btnImpExecute" class="ok" type="button">Execute import</button>
+              </div>
+              <p>O endpoint retorna operationId. Use o modulo Operations Monitor para acompanhar status.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="comparePage">
+          <div class="tabs">
+            <button class="tab active" data-tab="cmpSetup" type="button">Compare Setup</button>
+            <button class="tab" data-tab="cmpRun" type="button">Compare Run</button>
+          </div>
+          <div class="tab-panel active" id="cmpSetup">
+            <div class="section">
+              <h3>Compare package payload</h3>
+              <div class="grid">
+                <div><label>Baseline</label><input id="cmpBaseline" value="package"></div>
+                <div><label>Include unchanged</label>
+                  <select id="cmpIncludeUnchanged">
+                    <option value="false">false</option>
+                    <option value="true">true</option>
+                  </select>
+                </div>
+              </div>
+              <label>Objects JSON</label>
+              <textarea id="cmpObjects">[
+  { "type": "library", "siteId": "site-id", "name": "Contratos", "description": "Descricao esperada" },
+  { "type": "permission", "driveId": "drive-id", "itemId": "item-id", "recipients": [{ "email": "user@example.com" }], "roles": ["read"] }
+]</textarea>
+              <div class="button-row">
+                <button id="btnCmpPreview" type="button">Preview compare</button>
+              </div>
+            </div>
+          </div>
+          <div class="tab-panel" id="cmpRun">
+            <div class="section">
+              <h3>Execute compare operation</h3>
+              <div class="button-row">
+                <button id="btnCmpExecute" class="ok" type="button">Execute compare</button>
+              </div>
+              <p>Depois de concluido, exporte o diff no modulo Export Center.</p>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="operationsPage">
+          <div class="tabs">
+            <button class="tab active" data-tab="opsStatus" type="button">Status</button>
+          </div>
+          <div class="tab-panel active" id="opsStatus">
+            <div class="section">
+              <h3>Operation polling</h3>
+              <div class="grid">
+                <div><label>Operation ID</label><input id="opsOperationId" placeholder="op-..." /></div>
+              </div>
+              <div class="button-row">
+                <button id="btnOpsGet" type="button">Get operation status</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="auditPage">
+          <div class="tabs">
+            <button class="tab active" data-tab="audList" type="button">Audit Query</button>
+          </div>
+          <div class="tab-panel active" id="audList">
+            <div class="section">
+              <h3>Audit filters</h3>
+              <div class="grid">
+                <div><label>Action</label><input id="audAction" placeholder="compare.execute"></div>
+                <div><label>Status</label><input id="audStatus" placeholder="succeeded"></div>
+                <div><label>Operation ID</label><input id="audOperationId" placeholder="op-..." /></div>
+                <div><label>Correlation ID</label><input id="audCorrelationId" placeholder="corr-id" /></div>
+                <div><label>Limit</label><input id="audLimit" value="20"></div>
+                <div><label>Offset</label><input id="audOffset" value="0"></div>
+              </div>
+              <div class="button-row">
+                <button id="btnAudList" type="button">List audit events</button>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="exportPage">
+          <div class="tabs">
+            <button class="tab active" data-tab="expOperational" type="button">Operational export</button>
+            <button class="tab" data-tab="expCompare" type="button">Compare diff export</button>
+          </div>
+          <div class="tab-panel active" id="expOperational">
+            <div class="section">
+              <h3>Export API data</h3>
+              <div class="grid">
+                <div><label>Source</label>
+                  <select id="expSource">
+                    <option value="drive-files">drive-files</option>
+                    <option value="site-drives">site-drives</option>
+                    <option value="site-libraries">site-libraries</option>
+                    <option value="team-channels">team-channels</option>
+                    <option value="team-channel-content">team-channel-content</option>
+                    <option value="team-channel-members">team-channel-members</option>
+                    <option value="groups">groups</option>
+                    <option value="users">users</option>
+                    <option value="user-licenses">user-licenses</option>
+                    <option value="item-permissions">item-permissions</option>
+                  </select>
+                </div>
+                <div><label>Format</label>
+                  <select id="expFormat">
+                    <option value="json">json</option>
+                    <option value="csv">csv</option>
+                    <option value="xlsx">xlsx</option>
+                  </select>
+                </div>
+                <div><label>Site ID</label><input id="expSiteId"></div>
+                <div><label>Drive ID</label><input id="expDriveId"></div>
+                <div><label>Item ID</label><input id="expItemId"></div>
+                <div><label>User ID</label><input id="expUserId"></div>
+                <div><label>Path</label><input id="expPath"></div>
+                <div><label>Team ID</label><input id="expTeamId"></div>
+                <div><label>Channel ID</label><input id="expChannelId"></div>
+              </div>
+              <div class="button-row">
+                <button id="btnExpDownload" class="ok" type="button">Download export</button>
+                <button id="btnExpPreview" type="button">Preview as JSON</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="expCompare">
+            <div class="section">
+              <h3>Export compare diff by operationId</h3>
+              <div class="grid">
+                <div><label>Operation ID</label><input id="expCompareOperationId" placeholder="op-..."/></div>
+                <div><label>Format</label>
+                  <select id="expCompareFormat">
+                    <option value="json">json</option>
+                    <option value="csv">csv</option>
+                    <option value="xlsx">xlsx</option>
+                  </select>
+                </div>
+              </div>
+              <div class="button-row">
+                <button id="btnExpCompareDownload" class="ok" type="button">Download compare diff</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const API = '/api/v1/sharepoint';
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function setOutput(title, payload) {
+      byId('mainOutput').textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+    }
+
+    async function fetchJson(path, options) {
+      const response = await fetch(path, options);
+      if (response.status === 204) {
+        return { success: true, status: 204 };
+      }
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error?.message || `HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    function parseJsonTextarea(id) {
+      const raw = byId(id).value.trim();
+      if (!raw) return [];
+      return JSON.parse(raw);
+    }
+
+    function parseBoolSelect(id) {
+      return byId(id).value === 'true';
+    }
+
+    function buildQuery(params) {
+      const query = new URLSearchParams();
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value).trim() !== '') {
+          query.set(key, value);
+        }
+      });
+      return query.toString();
+    }
+
+    async function downloadFromUrl(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body?.error?.message || `HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get('content-disposition') || '';
+      const match = disposition.match(/filename="?([^\"]+)"?/i);
+      const filename = match?.[1] || 'download.bin';
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(link.href);
+    }
+
+    function bindNavigation() {
+      const navButtons = document.querySelectorAll('.nav-item');
+      navButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          navButtons.forEach((item) => item.classList.remove('active'));
+          button.classList.add('active');
+          const pageId = button.getAttribute('data-page');
+          document.querySelectorAll('.page').forEach((page) => page.classList.remove('active'));
+          byId(pageId).classList.add('active');
+        });
+      });
+
+      const allTabs = document.querySelectorAll('.tab');
+      allTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const parentPage = tab.closest('.page');
+          parentPage.querySelectorAll('.tab').forEach((item) => item.classList.remove('active'));
+          tab.classList.add('active');
+
+          const tabId = tab.getAttribute('data-tab');
+          parentPage.querySelectorAll('.tab-panel').forEach((panel) => panel.classList.remove('active'));
+          byId(tabId).classList.add('active');
+        });
+      });
+    }
+
+    async function homeHealth() {
+      const data = await fetchJson('/health');
+      byId('homeHealth').textContent = data.status || '-';
+      byId('homeEnv').textContent = data.environment || '-';
+      setOutput('Health', data);
+    }
+
+    async function homeConfig() {
+      const data = await fetchJson(`${API}/config`);
+      byId('homeAuth').textContent = data?.data?.isAuthenticated ? 'Autenticado' : 'Nao autenticado';
+      setOutput('SharePoint config', data);
+    }
+
+    async function homeAuth() {
+      const data = await fetchJson(`${API}/authenticate`, { method: 'POST' });
+      byId('homeAuth').textContent = data.success ? 'Autenticado' : 'Falha';
+      setOutput('Authenticate', data);
+    }
+
+    async function spListSites() {
+      const search = byId('spSiteSearch').value || '*';
+      const top = byId('spSiteTop').value || '10';
+      const data = await fetchJson(`${API}/sites?${buildQuery({ search, top })}`);
+      setOutput('List sites', data);
+    }
+
+    async function spListDrives() {
+      const siteId = byId('spSiteId').value.trim();
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(siteId)}/drives`);
+      setOutput('List drives', data);
+    }
+
+    async function spCreateDrive() {
+      const siteId = byId('spSiteId').value.trim();
+      const displayName = byId('spDriveName').value.trim();
+      const description = byId('spDriveDescription').value.trim();
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(siteId)}/drives`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, description })
+      });
+      setOutput('Create drive', data);
+    }
+
+    async function spListChildren() {
+      const driveId = byId('spDriveId').value.trim();
+      const path = byId('spPath').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/children?${buildQuery({ path })}`);
+      setOutput('List children', data);
+    }
+
+    async function spCreateFolder() {
+      const driveId = byId('spDriveId').value.trim();
+      const name = byId('spFolderName').value.trim();
+      const parentPath = byId('spPath').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, parentPath })
+      });
+      setOutput('Create folder', data);
+    }
+
+    async function spUploadFile() {
+      const driveId = byId('spDriveId').value.trim();
+      const fileName = byId('spFileName').value.trim();
+      const parentPath = byId('spPath').value.trim();
+      const content = byId('spFileContent').value;
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName, parentPath, content })
+      });
+      setOutput('Upload file', data);
+    }
+
+    async function spRename() {
+      const driveId = byId('spDriveId').value.trim();
+      const itemId = byId('spItemId').value.trim();
+      const newName = byId('spNewName').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newName })
+      });
+      setOutput('Rename item', data);
+    }
+
+    async function spDelete() {
+      const driveId = byId('spDriveId').value.trim();
+      const itemId = byId('spItemId').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`, {
+        method: 'DELETE'
+      });
+      setOutput('Delete item', data);
+    }
+
+    async function colListChannels() {
+      const teamId = byId('colTeamId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels`);
+      setOutput('List channels', data);
+    }
+
+    async function colListMembers() {
+      const teamId = byId('colTeamId').value.trim();
+      const channelId = byId('colChannelId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/members`);
+      setOutput('List channel members', data);
+    }
+
+    async function colListContent() {
+      const teamId = byId('colTeamId').value.trim();
+      const channelId = byId('colChannelId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/content`);
+      setOutput('List channel content', data);
+    }
+
+    async function colAddMember() {
+      const teamId = byId('colTeamId').value.trim();
+      const channelId = byId('colChannelId').value.trim();
+      const userId = byId('colUserId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, roles: [] })
+      });
+      setOutput('Add channel member', data);
+    }
+
+    async function colRemoveMember() {
+      const teamId = byId('colTeamId').value.trim();
+      const channelId = byId('colChannelId').value.trim();
+      const membershipId = byId('colMembershipId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/members/${encodeURIComponent(membershipId)}`, {
+        method: 'DELETE'
+      });
+      setOutput('Remove channel member', data);
+    }
+
+    async function colListGroups() {
+      const search = byId('colGroupSearch').value.trim();
+      const top = byId('colTop').value.trim() || '25';
+      const data = await fetchJson(`${API}/groups?${buildQuery({ search, top })}`);
+      setOutput('List groups', data);
+    }
+
+    async function colAddGroupMember() {
+      const groupId = byId('colGroupId').value.trim();
+      const memberObjectId = byId('colMemberObjectId').value.trim();
+      const data = await fetchJson(`${API}/groups/${encodeURIComponent(groupId)}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberObjectId })
+      });
+      setOutput('Add group member', data);
+    }
+
+    async function colRemoveGroupMember() {
+      const groupId = byId('colGroupId').value.trim();
+      const memberObjectId = byId('colMemberObjectId').value.trim();
+      const data = await fetchJson(`${API}/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberObjectId)}`, {
+        method: 'DELETE'
+      });
+      setOutput('Remove group member', data);
+    }
+
+    async function colListUsers() {
+      const search = byId('colUserSearch').value.trim();
+      const top = byId('colTop').value.trim() || '25';
+      const data = await fetchJson(`${API}/users?${buildQuery({ search, top })}`);
+      setOutput('List users', data);
+    }
+
+    async function colListLicenses() {
+      const userId = byId('colLicenseUserId').value.trim();
+      const data = await fetchJson(`${API}/users/${encodeURIComponent(userId)}/licenses`);
+      setOutput('List user licenses', data);
+    }
+
+    async function colAssignLicenses() {
+      const userId = byId('colLicenseUserId').value.trim();
+      const addSku = byId('colSkuAdd').value.trim();
+      const removeSku = byId('colSkuRemove').value.trim();
+      const data = await fetchJson(`${API}/users/${encodeURIComponent(userId)}/licenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          addLicenses: addSku ? [{ skuId: addSku }] : [],
+          removeLicenses: removeSku ? [removeSku] : []
+        })
+      });
+      setOutput('Assign licenses', data);
+    }
+
+    function buildImportPayload() {
+      return {
+        mode: byId('impMode').value,
+        sourceTenant: byId('impSourceTenant').value.trim(),
+        targetTenant: byId('impTargetTenant').value.trim(),
+        dryRun: parseBoolSelect('impDryRun'),
+        objects: parseJsonTextarea('impObjects')
+      };
+    }
+
+    async function impPreview() {
+      const payload = buildImportPayload();
+      const data = await fetchJson(`${API}/admin-governance/import/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      setOutput('Import preview', data);
+    }
+
+    async function impExecute() {
+      const payload = buildImportPayload();
+      const data = await fetchJson(`${API}/admin-governance/import/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      byId('opsOperationId').value = data?.data?.operationId || '';
+      setOutput('Import execute', data);
+    }
+
+    function buildComparePayload() {
+      return {
+        baseline: byId('cmpBaseline').value.trim() || 'package',
+        includeUnchanged: parseBoolSelect('cmpIncludeUnchanged'),
+        objects: parseJsonTextarea('cmpObjects')
+      };
+    }
+
+    async function cmpPreview() {
+      const payload = buildComparePayload();
+      const data = await fetchJson(`${API}/admin-governance/compare/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      setOutput('Compare preview', data);
+    }
+
+    async function cmpExecute() {
+      const payload = buildComparePayload();
+      const data = await fetchJson(`${API}/admin-governance/compare/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      byId('opsOperationId').value = data?.data?.operationId || '';
+      byId('expCompareOperationId').value = data?.data?.operationId || '';
+      setOutput('Compare execute', data);
+    }
+
+    async function opsGet() {
+      const operationId = byId('opsOperationId').value.trim();
+      const data = await fetchJson(`${API}/operations/${encodeURIComponent(operationId)}`);
+      setOutput('Operation status', data);
+    }
+
+    async function audList() {
+      const action = byId('audAction').value.trim();
+      const status = byId('audStatus').value.trim();
+      const operationId = byId('audOperationId').value.trim();
+      const correlationId = byId('audCorrelationId').value.trim();
+      const limit = byId('audLimit').value.trim();
+      const offset = byId('audOffset').value.trim();
+      const data = await fetchJson(`${API}/audit/events?${buildQuery({ action, status, operationId, correlationId, limit, offset })}`);
+      setOutput('Audit events', data);
+    }
+
+    async function expPreview() {
+      const source = byId('expSource').value;
+      const params = buildQuery({
+        source,
+        format: 'json',
+        siteId: byId('expSiteId').value,
+        driveId: byId('expDriveId').value,
+        itemId: byId('expItemId').value,
+        userId: byId('expUserId').value,
+        path: byId('expPath').value,
+        teamId: byId('expTeamId').value,
+        channelId: byId('expChannelId').value
+      });
+      const data = await fetchJson(`${API}/export?${params}`);
+      setOutput('Operational export preview', data);
+    }
+
+    async function expDownload() {
+      const source = byId('expSource').value;
+      const format = byId('expFormat').value;
+      const params = buildQuery({
+        source,
+        format,
+        siteId: byId('expSiteId').value,
+        driveId: byId('expDriveId').value,
+        itemId: byId('expItemId').value,
+        userId: byId('expUserId').value,
+        path: byId('expPath').value,
+        teamId: byId('expTeamId').value,
+        channelId: byId('expChannelId').value
+      });
+      await downloadFromUrl(`${API}/export?${params}`);
+      setOutput('Operational export download', { success: true, source, format });
+    }
+
+    async function expCompareDownload() {
+      const operationId = byId('expCompareOperationId').value.trim();
+      const format = byId('expCompareFormat').value;
+      await downloadFromUrl(`${API}/admin-governance/compare/export?${buildQuery({ operationId, format })}`);
+      setOutput('Compare diff download', { success: true, operationId, format });
+    }
+
+    function bindActions() {
+      byId('btnHomeHealth').addEventListener('click', () => homeHealth().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnHomeConfig').addEventListener('click', () => homeConfig().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnHomeAuth').addEventListener('click', () => homeAuth().catch((error) => setOutput('Error', { message: error.message })));
+
+      byId('btnSpListSites').addEventListener('click', () => spListSites().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpListDrives').addEventListener('click', () => spListDrives().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpCreateDrive').addEventListener('click', () => spCreateDrive().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpListChildren').addEventListener('click', () => spListChildren().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpCreateFolder').addEventListener('click', () => spCreateFolder().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpUploadFile').addEventListener('click', () => spUploadFile().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpRename').addEventListener('click', () => spRename().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpDelete').addEventListener('click', () => spDelete().catch((error) => setOutput('Error', { message: error.message })));
+
+      byId('btnColListChannels').addEventListener('click', () => colListChannels().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColListMembers').addEventListener('click', () => colListMembers().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColListContent').addEventListener('click', () => colListContent().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColAddMember').addEventListener('click', () => colAddMember().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColRemoveMember').addEventListener('click', () => colRemoveMember().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColListGroups').addEventListener('click', () => colListGroups().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColAddGroupMember').addEventListener('click', () => colAddGroupMember().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColRemoveGroupMember').addEventListener('click', () => colRemoveGroupMember().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColListUsers').addEventListener('click', () => colListUsers().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColListLicenses').addEventListener('click', () => colListLicenses().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnColAssignLicenses').addEventListener('click', () => colAssignLicenses().catch((error) => setOutput('Error', { message: error.message })));
+
+      byId('btnImpPreview').addEventListener('click', () => impPreview().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnImpExecute').addEventListener('click', () => impExecute().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnCmpPreview').addEventListener('click', () => cmpPreview().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnCmpExecute').addEventListener('click', () => cmpExecute().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnOpsGet').addEventListener('click', () => opsGet().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnAudList').addEventListener('click', () => audList().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnExpPreview').addEventListener('click', () => expPreview().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnExpDownload').addEventListener('click', () => expDownload().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnExpCompareDownload').addEventListener('click', () => expCompareDownload().catch((error) => setOutput('Error', { message: error.message })));
+    }
+
+    function bootstrap() {
+      bindNavigation();
+      bindActions();
+      homeHealth().catch((error) => setOutput('Error', { message: error.message }));
+    }
+
+    bootstrap();
+  </script>
+</body>
+</html>

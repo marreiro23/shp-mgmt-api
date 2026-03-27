@@ -97,6 +97,17 @@ Testes:
 npm run test:lts
 ```
 
+## Interface web
+
+- entrada padrao: `/web/operations-center.html`
+- entrada legada: `/web/index.html?legacy=1`
+- modulo legado de operacoes: `/web/operations.html`
+- modulo legado de colaboracao: `/web/collaboration.html`
+- modulo legado administrativo: `/web/admin.html`
+
+Observacao: `/web/index.html` redireciona automaticamente para o Operations
+Center quando chamado sem `?legacy=1`.
+
 ## Endpoints de referencia
 
 - GET /health
@@ -117,6 +128,9 @@ npm run test:lts
 No diretorio scripts/ estao os utilitarios para validacao e operacao do
 ambiente SharePoint/Graph, incluindo setup, testes de endpoints e update de
 escopos da App Registration.
+
+Tambem estao disponiveis scripts de automacao Git para bootstrap local,
+criacao de branch e validacao de sincronismo da branch main.
 
 ## Escopo e limites
 
