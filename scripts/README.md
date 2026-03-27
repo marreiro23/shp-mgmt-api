@@ -34,6 +34,9 @@ Este diretório mantém apenas automações do escopo SharePoint Graph.
 - `Git-SyncMainAndValidate.ps1`
   - Atualiza branch `main`, valida sincronismo com remoto e executa comando opcional de validação.
 
+- `git-automation/README.md`
+  - Guia detalhado de uso dos scripts de automação Git (bootstrap, branch e sync da main).
+
 ## Uso rápido
 
 ```powershell
