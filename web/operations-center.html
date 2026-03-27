@@ -342,6 +342,13 @@
               </div>
             </div>
             <div class="section">
+              <h3>Resource Cache</h3>
+              <p>Initialize and populate resource dropdowns with current data from SharePoint, Teams, and Azure AD.</p>
+              <div class="button-row">
+                <button id="btnInitializeResources" class="ok" type="button">Initialize Resources</button>
+              </div>
+            </div>
+            <div class="section">
               <h3>Output</h3>
               <pre class="output" id="mainOutput">Aguardando acao...</pre>
             </div>
@@ -372,7 +379,7 @@
               <div class="grid">
                 <div><label>Search</label><input id="spSiteSearch" value="*"></div>
                 <div><label>Top</label><input id="spSiteTop" value="10"></div>
-                <div><label>Site ID</label><input id="spSiteId" placeholder="site-id"></div>
+                <div><label>Site ID</label><select id="spSiteId"><option value="">(Carregando sites...)</option></select></div>
                 <div><label>Drive Name</label><input id="spDriveName" placeholder="Drive Operacional"></div>
                 <div><label>Drive Description</label><input id="spDriveDescription" placeholder="Descricao opcional"></div>
               </div>
@@ -388,7 +395,7 @@
             <div class="section">
               <h3>Drive content operations</h3>
               <div class="grid">
-                <div><label>Drive ID</label><input id="spDriveId" placeholder="drive-id"></div>
+                <div><label>Drive ID</label><select id="spDriveId"><option value="">(Selecione um site primeiro)</option></select></div>
                 <div><label>Path</label><input id="spPath" placeholder="Documentos/Projeto"></div>
                 <div><label>Folder name</label><input id="spFolderName" placeholder="NovaPasta"></div>
                 <div><label>File name</label><input id="spFileName" placeholder="nota.txt"></div>
@@ -417,9 +424,9 @@
             <div class="section">
               <h3>Teams channels and members</h3>
               <div class="grid">
-                <div><label>Team ID</label><input id="colTeamId" placeholder="team-id"></div>
-                <div><label>Channel ID</label><input id="colChannelId" placeholder="channel-id"></div>
-                <div><label>User ID</label><input id="colUserId" placeholder="user-id for member add"></div>
+                <div><label>Team ID</label><select id="colTeamId"><option value="">(Carregando teams...)</option></select></div>
+                <div><label>Channel ID</label><select id="colChannelId"><option value="">(Selecione um time primeiro)</option></select></div>
+                <div><label>User ID</label><select id="colUserId"><option value="">(Carregando users...)</option></select></div>
                 <div><label>Membership ID</label><input id="colMembershipId" placeholder="membership-id for remove"></div>
               </div>
               <div class="button-row">
@@ -437,7 +444,7 @@
               <div class="grid">
                 <div><label>Group search</label><input id="colGroupSearch" placeholder="Financeiro"></div>
                 <div><label>Top</label><input id="colTop" value="25"></div>
-                <div><label>Group ID</label><input id="colGroupId" placeholder="group-id"></div>
+                <div><label>Group ID</label><select id="colGroupId"><option value="">(Carregando groups...)</option></select></div>
                 <div><label>Member Object ID</label><input id="colMemberObjectId" placeholder="directory-object-id"></div>
                 <div><label>User search</label><input id="colUserSearch" placeholder="Maria"></div>
                 <div><label>User ID for licenses</label><input id="colLicenseUserId" placeholder="user-id"></div>
@@ -587,7 +594,9 @@
                   <select id="cmdType">
                     <option value="">(all)</option>
                     <option value="create">create</option>
+                    <option value="read">read</option>
                     <option value="update">update</option>
+                    <option value="delete">delete</option>
                     <option value="export">export</option>
                     <option value="import">import</option>
                   </select>
@@ -1285,6 +1294,7 @@
       byId('btnHomeHealth').addEventListener('click', () => homeHealth().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnHomeConfig').addEventListener('click', () => homeConfig().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnHomeAuth').addEventListener('click', () => homeAuth().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnInitializeResources').addEventListener('click', () => initializeDataCache().catch((error) => setOutput('Error', { message: error.message })));
 
       byId('btnSpListSites').addEventListener('click', () => spListSites().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnSpListDrives').addEventListener('click', () => spListDrives().catch((error) => setOutput('Error', { message: error.message })));
@@ -1424,11 +1434,244 @@
       });
     }
 
+    // ============ Resource Population Functions ============
+    async function populateSites() {
+      try {
+        const data = await fetchJson(`${API}/sites`);
+        const sites = data?.data || [];
+        const select = byId('spSiteId');
+        
+        if (!select) return;
+        
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">(Selecione um site)</option>';
+        
+        sites.forEach((site) => {
+          const option = document.createElement('option');
+          option.value = site.id;
+          option.textContent = `${site.displayName || site.name} (${site.id})`;
+          select.appendChild(option);
+        });
+        
+        if (currentValue) select.value = currentValue;
+        
+        // Log as 'read' command
+        await logCommand('read', 'sites', `${sites.length} sites loaded`);
+      } catch (error) {
+        console.error('Erro ao carregar sites:', error);
+      }
+    }
+
+    async function populateDrives(siteId) {
+      try {
+        if (!siteId) {
+          byId('spDriveId').innerHTML = '<option value="">(Selecione um site primeiro)</option>';
+          return;
+        }
+        
+        const data = await fetchJson(`${API}/sites/${siteId}/drives`);
+        const drives = data?.data || [];
+        const select = byId('spDriveId');
+        
+        if (!select) return;
+        
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">(Selecione um drive)</option>';
+        
+        drives.forEach((drive) => {
+          const option = document.createElement('option');
+          option.value = drive.id;
+          option.textContent = `${drive.name} (${drive.id})`;
+          select.appendChild(option);
+        });
+        
+        if (currentValue) select.value = currentValue;
+        
+        await logCommand('read', 'drives', `${drives.length} drives loaded for site ${siteId}`);
+      } catch (error) {
+        console.error('Erro ao carregar drives:', error);
+      }
+    }
+
+    async function populateGroups() {
+      try {
+        const data = await fetchJson(`${API}/groups`);
+        const groups = data?.data || [];
+        const select = byId('colGroupId');
+        
+        if (!select) return;
+        
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">(Selecione um grupo)</option>';
+        
+        groups.forEach((group) => {
+          const option = document.createElement('option');
+          option.value = group.id;
+          option.textContent = `${group.displayName} (${group.id})`;
+          select.appendChild(option);
+        });
+        
+        if (currentValue) select.value = currentValue;
+        
+        await logCommand('read', 'groups', `${groups.length} groups loaded`);
+      } catch (error) {
+        console.error('Erro ao carregar grupos:', error);
+      }
+    }
+
+    async function populateUsers() {
+      try {
+        const data = await fetchJson(`${API}/users`);
+        const users = data?.data || [];
+        const select = byId('colUserId');
+        
+        if (!select) return;
+        
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">(Selecione um usuário)</option>';
+        
+        users.forEach((user) => {
+          const option = document.createElement('option');
+          option.value = user.id;
+          option.textContent = `${user.displayName || user.userPrincipalName} (${user.id})`;
+          select.appendChild(option);
+        });
+        
+        if (currentValue) select.value = currentValue;
+        
+        await logCommand('read', 'users', `${users.length} users loaded`);
+      } catch (error) {
+        console.error('Erro ao carregar usuários:', error);
+      }
+    }
+
+    async function populateTeams() {
+      try {
+        // Note: There's no GET /teams endpoint available
+        // Teams are accessed via channels, so we'll skip this for now
+        console.warn('Teams endpoint not available - skipping populate');
+        return;
+      } catch (error) {
+        console.error('Erro ao carregar times:', error);
+      }
+    }
+
+    async function populateChannels(teamId) {
+      try {
+        if (!teamId) {
+          byId('colChannelId').innerHTML = '<option value="">(Selecione um time primeiro)</option>';
+          return;
+        }
+        
+        const data = await fetchJson(`${API}/teams/${teamId}/channels`);
+        const channels = data?.data || [];
+        const select = byId('colChannelId');
+        
+        if (!select) return;
+        
+        const currentValue = select.value;
+        select.innerHTML = '<option value="">(Selecione um canal)</option>';
+        
+        channels.forEach((channel) => {
+          const option = document.createElement('option');
+          option.value = channel.id;
+          option.textContent = `${channel.displayName} (${channel.id})`;
+          select.appendChild(option);
+        });
+        
+        if (currentValue) select.value = currentValue;
+        
+        await logCommand('read', 'channels', `${channels.length} channels loaded for team ${teamId}`);
+      } catch (error) {
+        console.error('Erro ao carregar canais:', error);
+      }
+    }
+
+    async function initializeDataCache() {
+      try {
+        setOutput('Info', { message: 'Inicializando cache de recursos...' });
+        
+        // Load primary resources
+        await Promise.all([
+          populateSites(),
+          populateGroups(),
+          populateUsers(),
+          populateTeams()
+        ]);
+        
+        setOutput('Success', { message: 'Recursos inicializados com sucesso!' });
+        
+        // Log initialization command
+        await logCommand('read', 'all-resources', 'Complete resource initialization');
+      } catch (error) {
+        setOutput('Error', { message: `Erro ao inicializar: ${error.message}` });
+      }
+    }
+
+    async function logCommand(cmdType, resource, details) {
+      try {
+        // Log via GET parameter instead of POST since POST endpoint may not exist
+        const params = new URLSearchParams({
+          cmdType: cmdType,
+          resource: resource,
+          details: details
+        });
+        
+        await fetchJson(`${API}/frontend-commands?${params.toString()}`);
+      } catch (error) {
+        console.warn('Erro ao registrar comando:', error);
+      }
+    }
+
+    // Convert specific input fields to select dropdowns
+    function convertInputsToSelects() {
+      const conversions = [
+        { inputId: 'spSiteId', selectId: 'spSiteId' },
+        { inputId: 'colGroupId', selectId: 'colGroupId' },
+        { inputId: 'colUserId', selectId: 'colUserId' },
+        { inputId: 'colTeamId', selectId: 'colTeamId' }
+      ];
+
+      conversions.forEach(({ inputId, selectId }) => {
+        const input = byId(inputId);
+        if (input && input.tagName === 'INPUT') {
+          // Create select element
+          const select = document.createElement('select');
+          select.id = selectId;
+          select.className = input.className;
+          select.style.cssText = input.style.cssText;
+          select.innerHTML = '<option value="">(Carregando...)</option>';
+          
+          // Replace input with select
+          input.replaceWith(select);
+        }
+      });
+    }
+
     function bootstrap() {
       bindNavigation();
       bindActions();
       bindMenuBar();
+      convertInputsToSelects();
       homeHealth().catch((error) => setOutput('Error', { message: error.message }));
+      
+      // Auto-initialize resources on startup
+      initializeDataCache().catch((error) => console.error('Erro na inicialização:', error));
+      
+      // Add change listeners for cascading dropdowns
+      const spSiteSelect = byId('spSiteId');
+      if (spSiteSelect) {
+        spSiteSelect.addEventListener('change', (e) => {
+          if (e.target.value) populateDrives(e.target.value);
+        });
+      }
+      
+      const colTeamSelect = byId('colTeamId');
+      if (colTeamSelect) {
+        colTeamSelect.addEventListener('change', (e) => {
+          if (e.target.value) populateChannels(e.target.value);
+        });
+      }
     }
 
     bootstrap();
