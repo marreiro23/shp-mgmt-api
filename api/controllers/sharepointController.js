@@ -923,6 +923,27 @@ export async function assignUserLicenses(req, res) {
   }
 }
 
+export async function listTeams(req, res) {
+  try {
+    const search = req.query.search || '';
+    const top = req.query.top ? parseInt(req.query.top, 10) : 25;
+    const refresh = String(req.query.refresh || 'false').toLowerCase() === 'true';
+
+    if (!refresh) {
+      const cachedTeams = await resourceQueryService.listTeams({ search, top });
+      if (cachedTeams.length > 0) {
+        return res.json({ success: true, count: cachedTeams.length, data: cachedTeams, dataSource: 'local-db' });
+      }
+    }
+
+    const teams = await sharePointGraphService.listTeams(search, top);
+    persistResourceSafely(() => resourcePersistenceService.upsertTeams(teams));
+    return res.json({ success: true, count: teams.length, data: teams, dataSource: 'graph' });
+  } catch (error) {
+    return sendError(res, req, error, 'Falha ao listar times.');
+  }
+}
+
 export async function listItemPermissions(req, res) {
   try {
     const { driveId, itemId } = req.params;

@@ -44,6 +44,7 @@ import {
   listLibraries,
   listItemPermissions,
   listSites,
+  listTeams,
   listTeamChannels,
   listUserLicenses,
   listUsers,
@@ -71,6 +72,7 @@ router.post('/sites/:parentSiteId/sites', createSite);
 router.get('/groups', listGroups);
 router.post('/groups', createGroup);
 router.patch('/groups/:groupId', updateGroup);
+router.get('/teams', listTeams);
 router.get('/users', listUsers);
 router.patch('/users/:userId', updateUser);
 router.get('/users/:userId/licenses', listUserLicenses);

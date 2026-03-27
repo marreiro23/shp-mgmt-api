@@ -316,6 +316,32 @@ class ResourceQueryService {
       files
     };
   }
+
+  async listTeams({ search = '', top = 25 } = {}) {
+    if (!pgService.isAvailable()) return [];
+
+    const effectiveTop = parseTop(top, 25, 500);
+    const text = search ? `%${String(search).toLowerCase()}%` : null;
+
+    const result = await pgService.query(
+      `SELECT team_id, group_id, display_name, description, web_url, is_archived, raw_payload
+         FROM shp.sharepoint_teams
+        WHERE tenant_id = $1
+          AND ($2::text IS NULL OR LOWER(COALESCE(display_name, '')) LIKE $2)
+        ORDER BY last_seen_at DESC
+        LIMIT ${effectiveTop}`,
+      [tenantId(), text]
+    );
+
+    return (result?.rows || []).map((row) => mergePayload(row, {
+      id: row.team_id,
+      groupId: row.group_id,
+      displayName: row.display_name,
+      description: row.description,
+      webUrl: row.web_url,
+      isArchived: row.is_archived
+    }));
+  }
 }
 
 const resourceQueryService = new ResourceQueryService();

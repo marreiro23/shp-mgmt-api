@@ -1600,10 +1600,16 @@
 
     async function populateTeams() {
       try {
-        // Note: There's no GET /teams endpoint available
-        // Teams are accessed via channels, so we'll skip this for now
-        console.warn('Teams endpoint not available - skipping populate');
-        return;
+        const data = await fetchJson(`${API}/teams`);
+        const teams = data?.data || [];
+        fillSelectElements(
+          ['colTeamId', 'expTeamId'],
+          teams,
+          (t) => t.id,
+          (t) => `${t.displayName} (${t.id})`,
+          '(Selecione um time)'
+        );
+        await logCommand('read', 'teams', `${teams.length} teams loaded`);
       } catch (error) {
         console.error('Erro ao carregar times:', error);
       }

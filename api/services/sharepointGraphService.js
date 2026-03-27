@@ -677,6 +677,31 @@ class SharePointGraphService {
     );
     return true;
   }
+
+  async listTeams(search = '', top = 25) {
+    const params = {
+      $top: sanitizeTop(top, 25, 200),
+      $select: 'id,displayName,description,webUrl,isArchived'
+    };
+
+    if (search) {
+      params.$search = `"displayName:${search}"`;
+      params.$count = true;
+    }
+
+    const response = await this.requestGraph('GET', '/teams', {
+      params,
+      headers: search ? { ConsistencyLevel: 'eventual' } : undefined
+    });
+
+    return (response.value || []).map(team => ({
+      id: team.id,
+      displayName: team.displayName,
+      description: team.description,
+      webUrl: team.webUrl,
+      isArchived: team.isArchived
+    }));
+  }
 }
 
 const sharePointGraphService = new SharePointGraphService();

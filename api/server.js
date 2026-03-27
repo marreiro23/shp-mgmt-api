@@ -9,7 +9,9 @@ import corsMiddleware from './middleware/cors.js';
 import { consoleLogger, customLogger } from './middleware/logger.js';
 import rateLimiter from './middleware/rateLimiter.js';
 import sharepointRoutes from './routes/sharepoint.routes.js';
+import syncRoutes from './routes/sync.routes.js';
 import pgService from './services/pgService.js';
+import resourceSyncService from './services/resourceSyncService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -111,6 +113,13 @@ function createApp() {
         governanceCompareExecute: `${config.API_PREFIX}/sharepoint/admin-governance/compare/execute`,
         governanceCompareExport: `${config.API_PREFIX}/sharepoint/admin-governance/compare/export?operationId=<id>&format=csv`,
         operationStatus: `${config.API_PREFIX}/sharepoint/operations/:operationId`,
+        syncStatus: `${config.API_PREFIX}/sharepoint/sync/status`,
+        syncRunFull: `${config.API_PREFIX}/sharepoint/sync/run-full`,
+        syncRunSites: `${config.API_PREFIX}/sharepoint/sync/run-sites`,
+        syncRunUsers: `${config.API_PREFIX}/sharepoint/sync/run-users`,
+        syncRunGroups: `${config.API_PREFIX}/sharepoint/sync/run-groups`,
+        syncRunTeams: `${config.API_PREFIX}/sharepoint/sync/run-teams`,
+        syncRunDrivesAndLibraries: `${config.API_PREFIX}/sharepoint/sync/run-drives-and-libraries`,
         auditEvents: `${config.API_PREFIX}/sharepoint/audit/events`,
         frontendCommands: `${config.API_PREFIX}/sharepoint/frontend-commands`,
         databaseRecords: `${config.API_PREFIX}/sharepoint/database/records?table=sharepoint_sites&limit=20&offset=0`
@@ -171,6 +180,7 @@ function createApp() {
   });
 
   app.use(`${config.API_PREFIX}/sharepoint`, sharepointRoutes);
+  app.use(`${config.API_PREFIX}/sharepoint/sync`, syncRoutes);
 
   app.use((req, res) => {
     const correlationId = createCorrelationId(req);
@@ -210,10 +220,23 @@ if (isMainModule) {
   const server = app.listen(PORT, HOST, async () => {
     console.log(`shp-mgmt-api em http://${HOST}:${PORT}`);
     await pgService.initialize();
+    
+    // Start periodic resource sync (sites, users, groups, teams)
+    resourceSyncService.start();
+    
+    // Run initial full sync on startup
+    console.log('[server] Running initial resource sync...');
+    resourceSyncService.runFullSync().catch(err => {
+      console.warn('[server] Initial sync warning:', err.message);
+    });
   });
 
   async function gracefulShutdown(signal) {
     console.log(`[server] ${signal} received — shutting down gracefully...`);
+    
+    // Stop the resource sync service
+    resourceSyncService.stop();
+    
     server.close(async () => {
       await pgService.close();
       process.exit(0);

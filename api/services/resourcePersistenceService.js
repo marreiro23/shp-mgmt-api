@@ -686,6 +686,41 @@ class ResourcePersistenceService {
       [tenantId(), asText(groupId), asText(memberObjectId)]
     );
   }
+
+  async upsertTeams(teams = []) {
+    if (!pgService.isAvailable() || !Array.isArray(teams)) return;
+
+    for (const team of teams) {
+      const teamId = asText(team?.id);
+      if (!teamId) continue;
+
+      await pgService.query(
+        `INSERT INTO shp.sharepoint_teams
+           (tenant_id, team_id, group_id, display_name, description, web_url, is_archived, raw_payload, last_seen_at)
+         VALUES
+           ($1, $2, $3, $4, $5, $6, $7, $8, now())
+         ON CONFLICT (tenant_id, team_id)
+         DO UPDATE SET
+           group_id = EXCLUDED.group_id,
+           display_name = EXCLUDED.display_name,
+           description = EXCLUDED.description,
+           web_url = EXCLUDED.web_url,
+           is_archived = EXCLUDED.is_archived,
+           raw_payload = EXCLUDED.raw_payload,
+           last_seen_at = now()`,
+        [
+          tenantId(),
+          teamId,
+          asText(team?.groupId || team?.group_id),
+          asText(team?.displayName),
+          asText(team?.description),
+          asText(team?.webUrl),
+          asBool(team?.isArchived),
+          team || {}
+        ]
+      );
+    }
+  }
 }
 
 const resourcePersistenceService = new ResourcePersistenceService();
