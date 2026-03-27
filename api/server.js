@@ -80,6 +80,7 @@ function createApp() {
         sharepointAuthenticate: `${config.API_PREFIX}/sharepoint/authenticate`,
         sharepointInventoryDatabase: `${config.API_PREFIX}/sharepoint/inventory/database`,
         sharepointSites: `${config.API_PREFIX}/sharepoint/sites`,
+        sharepointCreateSite: `${config.API_PREFIX}/sharepoint/sites/:parentSiteId/sites`,
         sharepointGroups: `${config.API_PREFIX}/sharepoint/groups`,
         sharepointUsers: `${config.API_PREFIX}/sharepoint/users`,
         sharepointUserLicenses: `${config.API_PREFIX}/sharepoint/users/:userId/licenses`,

@@ -446,6 +446,32 @@ export async function listSites(req, res) {
   }
 }
 
+export async function createSite(req, res) {
+  try {
+    const { parentSiteId } = req.params;
+    const displayName = String(req.body.displayName || '').trim();
+    const name = String(req.body.name || '').trim();
+
+    if (!parentSiteId) {
+      return sendValidationError(res, req, 'parentSiteId é obrigatório (parâmetro de rota).');
+    }
+    if (!displayName || !name) {
+      return sendValidationError(res, req, 'displayName e name são obrigatórios.');
+    }
+
+    const created = await sharePointGraphService.createSite(parentSiteId, {
+      displayName,
+      name,
+      description: req.body.description
+    });
+
+    persistResourceSafely(() => resourcePersistenceService.upsertSites([created]));
+    return res.status(201).json({ success: true, data: created });
+  } catch (error) {
+    return sendError(res, req, error, 'Falha ao criar site SharePoint.');
+  }
+}
+
 export async function listDrives(req, res) {
   try {
     const { siteId } = req.params;

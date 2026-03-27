@@ -273,6 +273,26 @@ class SharePointGraphService {
     return response.value || [];
   }
 
+  async createSite(parentSiteId, siteInput) {
+    const displayName = String(siteInput?.displayName || '').trim();
+    const name = String(siteInput?.name || '').trim();
+
+    if (!displayName || !name) {
+      const error = new Error('displayName e name são obrigatórios para criar um site.');
+      error.status = 400;
+      throw error;
+    }
+
+    const payload = { displayName, name };
+    if (siteInput?.description) {
+      payload.description = String(siteInput.description);
+    }
+
+    return this.requestGraph('POST', `/sites/${encodeURIComponent(parentSiteId)}/sites`, {
+      data: payload
+    });
+  }
+
   async listDrives(siteId) {
     const response = await this.requestGraph('GET', `/sites/${encodeURIComponent(siteId)}/drives`);
     return response.value || [];

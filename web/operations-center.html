@@ -389,6 +389,18 @@
                 <button id="btnSpCreateDrive" class="ok" type="button">Create drive</button>
               </div>
             </div>
+            <div class="section">
+              <h3>Criar subsite SharePoint</h3>
+              <div class="grid">
+                <div><label>Parent Site ID</label><select id="spParentSiteId"><option value="">(Carregando sites...)</option></select></div>
+                <div><label>Display Name *</label><input id="spNewSiteName" placeholder="Nome do subsite"></div>
+                <div><label>Name (URL segment) *</label><input id="spNewSiteSlug" placeholder="meu-subsite"></div>
+                <div><label>Description</label><input id="spNewSiteDescription" placeholder="Descricao opcional"></div>
+              </div>
+              <div class="button-row">
+                <button id="btnSpCreateSite" class="ok" type="button">Create site</button>
+              </div>
+            </div>
           </div>
 
           <div class="tab-panel" id="spFiles">
@@ -399,7 +411,7 @@
                 <div><label>Path</label><input id="spPath" placeholder="Documentos/Projeto"></div>
                 <div><label>Folder name</label><input id="spFolderName" placeholder="NovaPasta"></div>
                 <div><label>File name</label><input id="spFileName" placeholder="nota.txt"></div>
-                <div><label>Item ID</label><input id="spItemId" placeholder="item-id"></div>
+                <div><label>Item ID</label><select id="spItemId"><option value="">(Selecione um drive primeiro)</option></select></div>
                 <div><label>New name</label><input id="spNewName" placeholder="novo-nome.txt"></div>
               </div>
               <label>File content</label>
@@ -445,9 +457,9 @@
                 <div><label>Group search</label><input id="colGroupSearch" placeholder="Financeiro"></div>
                 <div><label>Top</label><input id="colTop" value="25"></div>
                 <div><label>Group ID</label><select id="colGroupId"><option value="">(Carregando groups...)</option></select></div>
-                <div><label>Member Object ID</label><input id="colMemberObjectId" placeholder="directory-object-id"></div>
+                <div><label>Member Object ID</label><select id="colMemberObjectId"><option value="">(Carregando users...)</option></select></div>
                 <div><label>User search</label><input id="colUserSearch" placeholder="Maria"></div>
-                <div><label>User ID for licenses</label><input id="colLicenseUserId" placeholder="user-id"></div>
+                <div><label>User ID for licenses</label><select id="colLicenseUserId"><option value="">(Carregando users...)</option></select></div>
                 <div><label>SKU add</label><input id="colSkuAdd" placeholder="sku-guid"></div>
                 <div><label>SKU remove</label><input id="colSkuRemove" placeholder="sku-guid"></div>
               </div>
@@ -698,13 +710,13 @@
                     <option value="xlsx">xlsx</option>
                   </select>
                 </div>
-                <div><label>Site ID</label><input id="expSiteId"></div>
-                <div><label>Drive ID</label><input id="expDriveId"></div>
+                <div><label>Site ID</label><select id="expSiteId"><option value="">(Carregando sites...)</option></select></div>
+                <div><label>Drive ID</label><select id="expDriveId"><option value="">(Selecione um site primeiro)</option></select></div>
                 <div><label>Item ID</label><input id="expItemId"></div>
-                <div><label>User ID</label><input id="expUserId"></div>
+                <div><label>User ID</label><select id="expUserId"><option value="">(Carregando users...)</option></select></div>
                 <div><label>Path</label><input id="expPath"></div>
-                <div><label>Team ID</label><input id="expTeamId"></div>
-                <div><label>Channel ID</label><input id="expChannelId"></div>
+                <div><label>Team ID</label><select id="expTeamId"><option value="">(Carregando teams...)</option></select></div>
+                <div><label>Channel ID</label><select id="expChannelId"><option value="">(Selecione um time primeiro)</option></select></div>
                 <div><label>Search (sites)</label><input id="expSearch" value="*"></div>
                 <div><label>Top Sites</label><input id="expTopSites" value="50"></div>
                 <div><label>Top Items/Drive</label><input id="expTopItemsPerDrive" value="200"></div>
@@ -963,6 +975,26 @@
         body: JSON.stringify({ displayName, description })
       });
       setOutput('Create drive', data);
+    }
+
+    async function spCreateSite() {
+      const parentSiteId = byId('spParentSiteId').value.trim();
+      const displayName = byId('spNewSiteName').value.trim();
+      const name = byId('spNewSiteSlug').value.trim();
+      const description = byId('spNewSiteDescription').value.trim();
+
+      if (!parentSiteId || !displayName || !name) {
+        setOutput('Error', { message: 'Parent Site ID, Display Name e Name (URL segment) são obrigatórios.' });
+        return;
+      }
+
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(parentSiteId)}/sites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, name, description })
+      });
+      setOutput('Create site', data);
+      if (data?.success) await populateSites();
     }
 
     async function spListChildren() {
@@ -1299,6 +1331,7 @@
       byId('btnSpListSites').addEventListener('click', () => spListSites().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnSpListDrives').addEventListener('click', () => spListDrives().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnSpCreateDrive').addEventListener('click', () => spCreateDrive().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnSpCreateSite').addEventListener('click', () => spCreateSite().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnSpListChildren').addEventListener('click', () => spListChildren().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnSpCreateFolder').addEventListener('click', () => spCreateFolder().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnSpUploadFile').addEventListener('click', () => spUploadFile().catch((error) => setOutput('Error', { message: error.message })));
@@ -1435,27 +1468,34 @@
     }
 
     // ============ Resource Population Functions ============
+
+    function fillSelectElements(selectIds, items, valueFn, labelFn, placeholderText) {
+      selectIds.forEach((id) => {
+        const select = byId(id);
+        if (!select) return;
+        const currentValue = select.value;
+        select.innerHTML = `<option value="">${placeholderText || '(Selecione)'}</option>`;
+        items.forEach((item) => {
+          const opt = document.createElement('option');
+          opt.value = valueFn(item);
+          opt.textContent = labelFn(item);
+          select.appendChild(opt);
+        });
+        if (currentValue) select.value = currentValue;
+      });
+    }
+
     async function populateSites() {
       try {
         const data = await fetchJson(`${API}/sites`);
         const sites = data?.data || [];
-        const select = byId('spSiteId');
-        
-        if (!select) return;
-        
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">(Selecione um site)</option>';
-        
-        sites.forEach((site) => {
-          const option = document.createElement('option');
-          option.value = site.id;
-          option.textContent = `${site.displayName || site.name} (${site.id})`;
-          select.appendChild(option);
-        });
-        
-        if (currentValue) select.value = currentValue;
-        
-        // Log as 'read' command
+        fillSelectElements(
+          ['spSiteId', 'expSiteId', 'spParentSiteId'],
+          sites,
+          (s) => s.id,
+          (s) => `${s.displayName || s.name} (${s.id})`,
+          '(Selecione um site)'
+        );
         await logCommand('read', 'sites', `${sites.length} sites loaded`);
       } catch (error) {
         console.error('Erro ao carregar sites:', error);
@@ -1468,28 +1508,59 @@
           byId('spDriveId').innerHTML = '<option value="">(Selecione um site primeiro)</option>';
           return;
         }
-        
         const data = await fetchJson(`${API}/sites/${siteId}/drives`);
         const drives = data?.data || [];
-        const select = byId('spDriveId');
-        
-        if (!select) return;
-        
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">(Selecione um drive)</option>';
-        
-        drives.forEach((drive) => {
-          const option = document.createElement('option');
-          option.value = drive.id;
-          option.textContent = `${drive.name} (${drive.id})`;
-          select.appendChild(option);
-        });
-        
-        if (currentValue) select.value = currentValue;
-        
+        fillSelectElements(
+          ['spDriveId'],
+          drives,
+          (d) => d.id,
+          (d) => `${d.name} (${d.id})`,
+          '(Selecione um drive)'
+        );
         await logCommand('read', 'drives', `${drives.length} drives loaded for site ${siteId}`);
       } catch (error) {
         console.error('Erro ao carregar drives:', error);
+      }
+    }
+
+    async function populateDrivesForExport(siteId) {
+      try {
+        if (!siteId) {
+          byId('expDriveId').innerHTML = '<option value="">(Selecione um site primeiro)</option>';
+          return;
+        }
+        const data = await fetchJson(`${API}/sites/${siteId}/drives`);
+        const drives = data?.data || [];
+        fillSelectElements(
+          ['expDriveId'],
+          drives,
+          (d) => d.id,
+          (d) => `${d.name} (${d.id})`,
+          '(Selecione um drive)'
+        );
+      } catch (error) {
+        console.error('Erro ao carregar drives para export:', error);
+      }
+    }
+
+    async function populateItemsInDrive(driveId) {
+      try {
+        if (!driveId) {
+          byId('spItemId').innerHTML = '<option value="">(Selecione um drive primeiro)</option>';
+          return;
+        }
+        const data = await fetchJson(`${API}/drives/${driveId}/children`);
+        const items = data?.data || [];
+        fillSelectElements(
+          ['spItemId'],
+          items,
+          (i) => i.id,
+          (i) => `${i.name} (${i.id})`,
+          '(Selecione um item)'
+        );
+        await logCommand('read', 'drive-items', `${items.length} items loaded for drive ${driveId}`);
+      } catch (error) {
+        console.error('Erro ao carregar itens do drive:', error);
       }
     }
 
@@ -1497,22 +1568,13 @@
       try {
         const data = await fetchJson(`${API}/groups`);
         const groups = data?.data || [];
-        const select = byId('colGroupId');
-        
-        if (!select) return;
-        
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">(Selecione um grupo)</option>';
-        
-        groups.forEach((group) => {
-          const option = document.createElement('option');
-          option.value = group.id;
-          option.textContent = `${group.displayName} (${group.id})`;
-          select.appendChild(option);
-        });
-        
-        if (currentValue) select.value = currentValue;
-        
+        fillSelectElements(
+          ['colGroupId'],
+          groups,
+          (g) => g.id,
+          (g) => `${g.displayName} (${g.id})`,
+          '(Selecione um grupo)'
+        );
         await logCommand('read', 'groups', `${groups.length} groups loaded`);
       } catch (error) {
         console.error('Erro ao carregar grupos:', error);
@@ -1523,22 +1585,13 @@
       try {
         const data = await fetchJson(`${API}/users`);
         const users = data?.data || [];
-        const select = byId('colUserId');
-        
-        if (!select) return;
-        
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">(Selecione um usuário)</option>';
-        
-        users.forEach((user) => {
-          const option = document.createElement('option');
-          option.value = user.id;
-          option.textContent = `${user.displayName || user.userPrincipalName} (${user.id})`;
-          select.appendChild(option);
-        });
-        
-        if (currentValue) select.value = currentValue;
-        
+        fillSelectElements(
+          ['colUserId', 'colLicenseUserId', 'colMemberObjectId', 'expUserId'],
+          users,
+          (u) => u.id,
+          (u) => `${u.displayName || u.userPrincipalName} (${u.id})`,
+          '(Selecione um usuário)'
+        );
         await logCommand('read', 'users', `${users.length} users loaded`);
       } catch (error) {
         console.error('Erro ao carregar usuários:', error);
@@ -1562,28 +1615,38 @@
           byId('colChannelId').innerHTML = '<option value="">(Selecione um time primeiro)</option>';
           return;
         }
-        
         const data = await fetchJson(`${API}/teams/${teamId}/channels`);
         const channels = data?.data || [];
-        const select = byId('colChannelId');
-        
-        if (!select) return;
-        
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">(Selecione um canal)</option>';
-        
-        channels.forEach((channel) => {
-          const option = document.createElement('option');
-          option.value = channel.id;
-          option.textContent = `${channel.displayName} (${channel.id})`;
-          select.appendChild(option);
-        });
-        
-        if (currentValue) select.value = currentValue;
-        
+        fillSelectElements(
+          ['colChannelId'],
+          channels,
+          (c) => c.id,
+          (c) => `${c.displayName} (${c.id})`,
+          '(Selecione um canal)'
+        );
         await logCommand('read', 'channels', `${channels.length} channels loaded for team ${teamId}`);
       } catch (error) {
         console.error('Erro ao carregar canais:', error);
+      }
+    }
+
+    async function populateChannelsForExport(teamId) {
+      try {
+        if (!teamId) {
+          byId('expChannelId').innerHTML = '<option value="">(Selecione um time primeiro)</option>';
+          return;
+        }
+        const data = await fetchJson(`${API}/teams/${teamId}/channels`);
+        const channels = data?.data || [];
+        fillSelectElements(
+          ['expChannelId'],
+          channels,
+          (c) => c.id,
+          (c) => `${c.displayName} (${c.id})`,
+          '(Selecione um canal)'
+        );
+      } catch (error) {
+        console.error('Erro ao carregar canais para export:', error);
       }
     }
 
@@ -1591,7 +1654,7 @@
       try {
         setOutput('Info', { message: 'Inicializando cache de recursos...' });
         
-        // Load primary resources
+        // Load primary resources in parallel
         await Promise.all([
           populateSites(),
           populateGroups(),
@@ -1623,29 +1686,10 @@
       }
     }
 
-    // Convert specific input fields to select dropdowns
+    // All ID-dependent fields are already <select> elements in the HTML.
+    // This function is kept for backward compatibility in case of dynamic DOM manipulation.
     function convertInputsToSelects() {
-      const conversions = [
-        { inputId: 'spSiteId', selectId: 'spSiteId' },
-        { inputId: 'colGroupId', selectId: 'colGroupId' },
-        { inputId: 'colUserId', selectId: 'colUserId' },
-        { inputId: 'colTeamId', selectId: 'colTeamId' }
-      ];
-
-      conversions.forEach(({ inputId, selectId }) => {
-        const input = byId(inputId);
-        if (input && input.tagName === 'INPUT') {
-          // Create select element
-          const select = document.createElement('select');
-          select.id = selectId;
-          select.className = input.className;
-          select.style.cssText = input.style.cssText;
-          select.innerHTML = '<option value="">(Carregando...)</option>';
-          
-          // Replace input with select
-          input.replaceWith(select);
-        }
-      });
+      // No-op: all fields already use <select> tags in the markup.
     }
 
     function bootstrap() {
@@ -1670,6 +1714,32 @@
       if (colTeamSelect) {
         colTeamSelect.addEventListener('change', (e) => {
           if (e.target.value) populateChannels(e.target.value);
+        });
+      }
+
+      // Export page cascade listeners
+      const expSiteSelect = byId('expSiteId');
+      if (expSiteSelect) {
+        expSiteSelect.addEventListener('change', (e) => {
+          if (e.target.value) populateDrivesForExport(e.target.value);
+          else byId('expDriveId').innerHTML = '<option value="">(Selecione um site primeiro)</option>';
+        });
+      }
+
+      const expTeamSelect = byId('expTeamId');
+      if (expTeamSelect) {
+        expTeamSelect.addEventListener('change', (e) => {
+          if (e.target.value) populateChannelsForExport(e.target.value);
+          else byId('expChannelId').innerHTML = '<option value="">(Selecione um time primeiro)</option>';
+        });
+      }
+
+      // Drive items cascade for spItemId
+      const spDriveSelect = byId('spDriveId');
+      if (spDriveSelect) {
+        spDriveSelect.addEventListener('change', (e) => {
+          if (e.target.value) populateItemsInDrive(e.target.value);
+          else byId('spItemId').innerHTML = '<option value="">(Selecione um drive primeiro)</option>';
         });
       }
     }

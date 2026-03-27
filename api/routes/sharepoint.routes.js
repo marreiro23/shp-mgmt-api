@@ -24,6 +24,7 @@ import {
   createFolder,
   createItemPermission,
   createLibrary,
+  createSite,
   createTeamChannel,
   deleteItem,
   deleteItemPermission,
@@ -66,6 +67,7 @@ router.get('/docs', getDocumentation);
 router.get('/inventory/database', getInventoryDatabase);
 router.post('/authenticate', authenticate);
 router.get('/sites', listSites);
+router.post('/sites/:parentSiteId/sites', createSite);
 router.get('/groups', listGroups);
 router.post('/groups', createGroup);
 router.patch('/groups/:groupId', updateGroup);

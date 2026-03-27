@@ -24,12 +24,26 @@ Referencia completa dos endpoints ativos em /api/v1/sharepoint.
 | Metodo | Endpoint | Descricao |
 | --- | --- | --- |
 | GET | /sites | Lista sites por busca |
+| POST | /sites/:parentSiteId/sites | Cria subsite no site pai especificado |
 | GET | /sites/:siteId/drives | Lista drives do site |
 | POST | /sites/:siteId/drives | Cria drive (provisiona documentLibrary) |
 | GET | /sites/:siteId/libraries | Lista bibliotecas do site |
 | POST | /sites/:siteId/libraries | Cria biblioteca |
 | PATCH | /sites/:siteId/libraries/:listId | Atualiza biblioteca |
 | PATCH | /drives/:driveId | Atualiza drive |
+
+Exemplo de criacao de subsite:
+
+```http
+POST /api/v1/sharepoint/sites/{parentSiteId}/sites
+Content-Type: application/json
+
+{
+  "displayName": "Subsite de Projetos",
+  "name": "projetos",
+  "description": "Subsite para gestao de projetos"
+}
+```
 
 Exemplo de criacao de biblioteca:
 
