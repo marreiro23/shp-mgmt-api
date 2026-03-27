@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, resolve } from 'path';
+import pgService from './pgService.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,6 +60,10 @@ function createEventId() {
   return `audit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function _tenantId() {
+  return process.env.AZURE_TENANT_ID || 'default';
+}
+
 class AuditTrailService {
   appendEvent(eventInput = {}) {
     const db = readDb();
@@ -77,10 +82,81 @@ class AuditTrailService {
 
     db.events.push(event);
     writeDb(db);
+    // Persist to PostgreSQL (fire-and-forget)
+    pgService
+      .query(
+        `INSERT INTO shp.audit_events
+           (tenant_id, event_type, actor, resource_type, resource_id, operation_id, status, detail, occurred_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          _tenantId(),
+          event.action,
+          typeof event.actor === 'string' ? event.actor : JSON.stringify(event.actor),
+          event.targetType ?? null,
+          event.targetId ?? null,
+          event.operationId ?? null,
+          event.status,
+          event,
+          event.timestamp
+        ]
+      )
+      .catch((err) => console.error('[auditTrail] PG insert failed:', err.message));
+
     return event;
   }
 
-  listEvents(query = {}) {
+  async listEvents(query = {}) {
+    // PG-primary: build parameterised query and fall back to file store on failure
+    if (pgService.isAvailable()) {
+      const tenantId = _tenantId();
+      const filters = [];
+      const params = [tenantId];
+
+      if (query.action) {
+        params.push(String(query.action).toLowerCase());
+        filters.push(`LOWER(event_type) = $${params.length}`);
+      }
+      if (query.status) {
+        params.push(String(query.status).toLowerCase());
+        filters.push(`LOWER(status) = $${params.length}`);
+      }
+      if (query.operationId) {
+        params.push(query.operationId);
+        filters.push(`operation_id = $${params.length}`);
+      }
+      if (query.correlationId) {
+        params.push(query.correlationId);
+        filters.push(`detail->>'correlationId' = $${params.length}`);
+      }
+
+      const where = filters.length > 0 ? `AND ${filters.join(' AND ')}` : '';
+      const limit = Number.isFinite(query.limit) && query.limit > 0 ? Math.min(query.limit, 1000) : 50;
+      const offset = Number.isFinite(query.offset) && query.offset >= 0 ? query.offset : 0;
+
+      // COUNT query to get total matching rows
+      const countResult = await pgService.query(
+        `SELECT COUNT(*) AS total FROM shp.audit_events WHERE tenant_id = $1 ${where}`,
+        params
+      );
+      const total = parseInt(countResult?.rows?.[0]?.total ?? '0', 10);
+
+      const rowsResult = await pgService.query(
+        `SELECT detail FROM shp.audit_events WHERE tenant_id = $1 ${where}
+         ORDER BY occurred_at DESC LIMIT ${limit} OFFSET ${offset}`,
+        params
+      );
+
+      if (rowsResult?.rows) {
+        return {
+          total,
+          limit,
+          offset,
+          items: rowsResult.rows.map((r) => r.detail)
+        };
+      }
+    }
+
+    // File-store fallback
     const db = readDb();
     let rows = [...db.events].reverse();
 

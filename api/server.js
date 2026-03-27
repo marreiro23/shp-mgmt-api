@@ -104,7 +104,8 @@ function createApp() {
         governanceCompareExport: `${config.API_PREFIX}/sharepoint/admin-governance/compare/export?operationId=<id>&format=csv`,
         operationStatus: `${config.API_PREFIX}/sharepoint/operations/:operationId`,
         auditEvents: `${config.API_PREFIX}/sharepoint/audit/events`,
-        frontendCommands: `${config.API_PREFIX}/sharepoint/frontend-commands`
+        frontendCommands: `${config.API_PREFIX}/sharepoint/frontend-commands`,
+        databaseRecords: `${config.API_PREFIX}/sharepoint/database/records?table=sharepoint_sites&limit=20&offset=0`
       },
       web: {
         home: '/web/operations-center.html',

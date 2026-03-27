@@ -318,7 +318,7 @@ export async function getOperationStatus(req, res) {
       throw error;
     }
 
-    const operation = operationsStoreService.getOperation(operationId);
+    const operation = await operationsStoreService.getOperation(operationId);
     if (!operation) {
       const error = new Error('Operacao nao encontrada.');
       error.status = 404;
@@ -338,7 +338,7 @@ export async function listAuditEvents(req, res) {
     const correlationId = createCorrelationId(req);
     res.setHeader('x-correlation-id', correlationId);
 
-    const rows = auditTrailService.listEvents({
+      const rows = await auditTrailService.listEvents({
       action: req.query.action,
       status: req.query.status,
       operationId: req.query.operationId,

@@ -367,6 +367,30 @@ function persistResourceSafely(persistFn) {
     });
 }
 
+const DATABASE_TABLES = {
+  sharepoint_sites: { orderBy: 'last_seen_at' },
+  sharepoint_drives: { orderBy: 'last_seen_at' },
+  sharepoint_libraries: { orderBy: 'last_seen_at' },
+  sharepoint_drive_items: { orderBy: 'last_seen_at' },
+  sharepoint_item_permissions: { orderBy: 'last_seen_at' },
+  sharepoint_groups: { orderBy: 'last_seen_at' },
+  sharepoint_group_members: { orderBy: 'last_seen_at' },
+  sharepoint_users: { orderBy: 'last_seen_at' },
+  sharepoint_user_licenses: { orderBy: 'last_seen_at' },
+  sharepoint_teams: { orderBy: 'last_seen_at' },
+  sharepoint_team_channels: { orderBy: 'last_seen_at' },
+  sharepoint_channel_members: { orderBy: 'last_seen_at' },
+  sharepoint_channel_messages: { orderBy: 'last_seen_at' },
+  sharepoint_channel_files: { orderBy: 'last_seen_at' },
+  frontend_commands: { orderBy: 'created_at' },
+  operations: { orderBy: 'started_at' },
+  audit_events: { orderBy: 'occurred_at' },
+  export_runs: { orderBy: 'started_at' },
+  governance_packages: { orderBy: 'created_at' },
+  resources: { orderBy: 'exported_at' },
+  permissions: { orderBy: 'exported_at' }
+};
+
 export async function getInventoryDatabase(req, res) {
   try {
     const database = inventoryDbService.getDatabase();
@@ -1606,5 +1630,127 @@ export async function listFrontendCommands(req, res) {
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao listar comandos executados via frontend.');
+  }
+}
+
+export async function listDatabaseRecords(req, res) {
+  try {
+    if (!pgService.isAvailable()) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          table: null,
+          total: 0,
+          limit: 0,
+          offset: 0,
+          items: [],
+          availableTables: Object.keys(DATABASE_TABLES)
+        }
+      });
+    }
+
+    const table = String(req.query.table || 'sharepoint_sites').trim();
+    const config = DATABASE_TABLES[table];
+    if (!config) {
+      return sendValidationError(res, req, `table inválida. Valores suportados: ${Object.keys(DATABASE_TABLES).join(', ')}`);
+    }
+
+    const limit = req.query.limit ? parseInt(req.query.limit, 10) : 50;
+    const offset = req.query.offset ? parseInt(req.query.offset, 10) : 0;
+    const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 500) : 50;
+    const safeOffset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
+
+    const q = String(req.query.q || '').trim();
+    const queryText = q ? `%${q.toLowerCase()}%` : null;
+
+    const whereClause = queryText
+      ? `tenant_id = $1 AND CAST(to_jsonb(${table}) AS text) ILIKE $2`
+      : 'tenant_id = $1';
+
+    const countParams = queryText ? [process.env.AZURE_TENANT_ID || 'default', queryText] : [process.env.AZURE_TENANT_ID || 'default'];
+    const countResult = await pgService.query(
+      `SELECT COUNT(*) AS total FROM shp.${table} WHERE ${whereClause}`,
+      countParams
+    );
+
+    const total = parseInt(countResult?.rows?.[0]?.total ?? '0', 10);
+    const rowsResult = await pgService.query(
+      `SELECT * FROM shp.${table}
+        WHERE ${whereClause}
+        ORDER BY ${config.orderBy} DESC NULLS LAST
+        LIMIT ${safeLimit}
+       OFFSET ${safeOffset}`,
+      countParams
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        table,
+        total,
+        limit: safeLimit,
+        offset: safeOffset,
+        items: rowsResult?.rows || [],
+        availableTables: Object.keys(DATABASE_TABLES)
+      }
+    });
+  } catch (error) {
+    return sendError(res, req, error, 'Falha ao listar conteúdo da base PostgreSQL.');
+  }
+}
+
+export async function getDocumentation(req, res) {
+  try {
+    const docs = {
+      tutorials: [
+        { id: 'primeiros-passos', title: 'Primeiros passos', path: '/docs/tutorials/primeiros-passos.md', category: 'tutorial' },
+        { id: 'postgresql-primeiros-passos', title: 'PostgreSQL: primeiros passos', path: '/docs/tutorials/postgresql-primeiros-passos.md', category: 'tutorial' }
+      ],
+      howto: [
+        { id: 'expandir-recursos', title: 'Expandir recursos da API nas páginas HTML', path: '/docs/how-to/expandir-recursos-nas-paginas-html.md', category: 'how-to' },
+        { id: 'operar-postgresql', title: 'Operar, manter e expandir PostgreSQL (inclui Azure Flexible Server)', path: '/docs/how-to/operar-e-expandir-postgresql.md', category: 'how-to' },
+        { id: 'runbook-postgresql', title: 'Runbook de incidentes e troubleshooting PostgreSQL', path: '/docs/how-to/runbook-incidentes-postgresql.md', category: 'how-to' }
+      ],
+      reference: [
+        { id: 'arquitetura-codigo', title: 'Arquitetura e código', path: '/docs/reference/arquitetura-e-codigo.md', category: 'reference' },
+        { id: 'dependencias', title: 'Dependências', path: '/docs/reference/dependencias.md', category: 'reference' },
+        { id: 'endpoints', title: 'Endpoints da API', path: '/docs/reference/endpoints.md', category: 'reference' },
+        { id: 'endpoints-uso', title: 'Uso dos endpoints com Invoke-RestMethod, curl e Postman', path: '/docs/reference/endpoints-uso-cli-postman.md', category: 'reference' },
+        { id: 'postgresql-ambiente', title: 'PostgreSQL: ambiente e schema', path: '/docs/reference/postgresql-ambiente-e-schema.md', category: 'reference' }
+      ],
+      explanation: [
+        { id: 'design-decisoes', title: 'Decisões de design e limites do escopo', path: '/docs/explanation/design-e-decisoes.md', category: 'explanation' },
+        { id: 'postgresql-plataforma', title: 'Por que PostgreSQL foi escolhido', path: '/docs/explanation/postgresql-como-plataforma-de-dados.md', category: 'explanation' }
+      ]
+    };
+
+    const allDocs = [
+      ...docs.tutorials,
+      ...docs.howto,
+      ...docs.reference,
+      ...docs.explanation
+    ];
+
+    return res.json({
+      success: true,
+      data: {
+        categories: {
+          tutorial: { label: 'Tutoriais', count: docs.tutorials.length, items: docs.tutorials },
+          howto: { label: 'Como fazer (How-to)', count: docs.howto.length, items: docs.howto },
+          reference: { label: 'Referência', count: docs.reference.length, items: docs.reference },
+          explanation: { label: 'Explicação', count: docs.explanation.length, items: docs.explanation }
+        },
+        all: allDocs,
+        summary: {
+          totalDocs: allDocs.length,
+          totalTutorials: docs.tutorials.length,
+          totalHowto: docs.howto.length,
+          totalReference: docs.reference.length,
+          totalExplanation: docs.explanation.length
+        }
+      }
+    });
+  } catch (error) {
+    return sendError(res, req, error, 'Falha ao listar documentação.');
   }
 }

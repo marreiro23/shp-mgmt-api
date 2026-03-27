@@ -316,7 +316,9 @@
         <button class="nav-item" data-page="comparePage" type="button">Compare Jobs</button>
         <button class="nav-item" data-page="operationsPage" type="button">Operations Monitor</button>
         <button class="nav-item" data-page="auditPage" type="button">Audit Trail</button>
+        <button class="nav-item" data-page="databasePage" type="button">Database Browser</button>
         <button class="nav-item" data-page="exportPage" type="button">Export Center</button>
+        <button class="nav-item" data-page="helpPage" type="button">Help</button>
       </aside>
 
       <section class="content">
@@ -610,6 +612,51 @@
           </div>
         </article>
 
+        <article class="page" id="databasePage">
+          <div class="tabs">
+            <button class="tab active" data-tab="dbBrowse" type="button">Browse tables</button>
+          </div>
+          <div class="tab-panel active" id="dbBrowse">
+            <div class="section">
+              <h3>PostgreSQL database content</h3>
+              <div class="grid">
+                <div><label>Table</label>
+                  <select id="dbTable">
+                    <option value="sharepoint_sites">sharepoint_sites</option>
+                    <option value="sharepoint_drives">sharepoint_drives</option>
+                    <option value="sharepoint_libraries">sharepoint_libraries</option>
+                    <option value="sharepoint_drive_items">sharepoint_drive_items</option>
+                    <option value="sharepoint_item_permissions">sharepoint_item_permissions</option>
+                    <option value="sharepoint_groups">sharepoint_groups</option>
+                    <option value="sharepoint_group_members">sharepoint_group_members</option>
+                    <option value="sharepoint_users">sharepoint_users</option>
+                    <option value="sharepoint_user_licenses">sharepoint_user_licenses</option>
+                    <option value="sharepoint_teams">sharepoint_teams</option>
+                    <option value="sharepoint_team_channels">sharepoint_team_channels</option>
+                    <option value="sharepoint_channel_members">sharepoint_channel_members</option>
+                    <option value="sharepoint_channel_messages">sharepoint_channel_messages</option>
+                    <option value="sharepoint_channel_files">sharepoint_channel_files</option>
+                    <option value="frontend_commands">frontend_commands</option>
+                    <option value="operations">operations</option>
+                    <option value="audit_events">audit_events</option>
+                    <option value="export_runs">export_runs</option>
+                    <option value="governance_packages">governance_packages</option>
+                    <option value="resources">resources</option>
+                    <option value="permissions">permissions</option>
+                  </select>
+                </div>
+                <div><label>Search text (q)</label><input id="dbQuery" placeholder="site name, id, email..." /></div>
+                <div><label>Limit</label><input id="dbLimit" value="20" /></div>
+                <div><label>Offset</label><input id="dbOffset" value="0" /></div>
+              </div>
+              <div class="button-row">
+                <button id="btnDbBrowse" type="button">List table rows</button>
+              </div>
+              <p>Use o campo q para filtrar por texto no conteúdo da linha.</p>
+            </div>
+          </div>
+        </article>
+
         <article class="page" id="exportPage">
           <div class="tabs">
             <button class="tab active" data-tab="expOperational" type="button">Operational export</button>
@@ -714,6 +761,50 @@
               <div class="button-row">
                 <button id="btnExpCompareDownload" class="ok" type="button">Download compare diff</button>
               </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="page" id="helpPage">
+          <div class="tabs">
+            <button class="tab active" data-tab="helpAll" type="button">Todos os documentos</button>
+            <button class="tab" data-tab="helpTutorials" type="button">Tutoriais</button>
+            <button class="tab" data-tab="helpHowto" type="button">Como fazer</button>
+            <button class="tab" data-tab="helpReference" type="button">Referência</button>
+            <button class="tab" data-tab="helpExplanation" type="button">Explicação</button>
+          </div>
+          <div class="tab-panel active" id="helpAll">
+            <div class="section">
+              <h3>Documentação disponível</h3>
+              <div id="helpAllContent" style="font-size: 14px;"></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="helpTutorials">
+            <div class="section">
+              <h3>Tutoriais</h3>
+              <p>Comece aqui se você é novo no projeto.</p>
+              <div id="helpTutorialsContent" style="font-size: 14px;"></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="helpHowto">
+            <div class="section">
+              <h3>Como fazer (How-to)</h3>
+              <p>Guias de procedimento para tarefas específicas.</p>
+              <div id="helpHowtoContent" style="font-size: 14px;"></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="helpReference">
+            <div class="section">
+              <h3>Referência</h3>
+              <p>Documentação técnica e de referência.</p>
+              <div id="helpReferenceContent" style="font-size: 14px;"></div>
+            </div>
+          </div>
+          <div class="tab-panel" id="helpExplanation">
+            <div class="section">
+              <h3>Explicação</h3>
+              <p>Contexto e decisões de design.</p>
+              <div id="helpExplanationContent" style="font-size: 14px;"></div>
             </div>
           </div>
         </article>
@@ -1105,6 +1196,15 @@
       setOutput('Frontend commands', data);
     }
 
+    async function dbBrowse() {
+      const table = byId('dbTable').value;
+      const q = byId('dbQuery').value.trim();
+      const limit = byId('dbLimit').value.trim();
+      const offset = byId('dbOffset').value.trim();
+      const data = await fetchJson(`${API}/database/records?${buildQuery({ table, q, limit, offset })}`);
+      setOutput(`Database records: ${table}`, data);
+    }
+
     async function expPreview() {
       const source = byId('expSource').value;
       const params = buildQuery({
@@ -1214,15 +1314,120 @@
       byId('btnOpsGet').addEventListener('click', () => opsGet().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnAudList').addEventListener('click', () => audList().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnCmdList').addEventListener('click', () => cmdList().catch((error) => setOutput('Error', { message: error.message })));
+      byId('btnDbBrowse').addEventListener('click', () => dbBrowse().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpPreview').addEventListener('click', () => expPreview().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpDownload').addEventListener('click', () => expDownload().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpImportPermissions').addEventListener('click', () => expImportPermissions().catch((error) => setOutput('Error', { message: error.message })));
       byId('btnExpCompareDownload').addEventListener('click', () => expCompareDownload().catch((error) => setOutput('Error', { message: error.message })));
     }
 
+    async function loadDocumentation() {
+      try {
+        const data = await fetchJson(`${API}/docs`);
+        const docs = data?.data || {};
+        const categories = docs.categories || {};
+
+        // Render tous les documents
+        const allIndex = docs.all || [];
+        const allHtml = allIndex.map((doc) => `
+          <div style="margin: 12px 0; padding: 10px; border-left: 3px solid var(--action); background: #f9f9f9;">
+            <strong>${doc.title}</strong>
+            <div style="font-size: 12px; color: #666; margin-top: 4px;">
+              <em>Categoria: ${doc.category}</em> | <em>ID: ${doc.id}</em>
+            </div>
+            <div style="margin-top: 6px;">
+              <a href="${doc.path}" target="_blank" style="color: #0f6a73; text-decoration: none; font-weight: 600;">
+                Abrir documentação →
+              </a>
+            </div>
+          </div>
+        `).join('');
+        byId('helpAllContent').innerHTML = allHtml || '<p>Nenhum documento disponível.</p>';
+
+        // Render tutorials
+        const tutorials = categories.tutorial?.items || [];
+        const tutorialsHtml = tutorials.map((doc) => `
+          <div style="margin: 12px 0; padding: 10px; border-left: 3px solid #2f6f3e; background: #f9f9f9;">
+            <strong>${doc.title}</strong>
+            <div style="margin-top: 6px;">
+              <a href="${doc.path}" target="_blank" style="color: #2f6f3e; text-decoration: none; font-weight: 600;">
+                Ler tutorial →
+              </a>
+            </div>
+          </div>
+        `).join('');
+        byId('helpTutorialsContent').innerHTML = tutorialsHtml || '<p>Nenhum tutorial disponível.</p>';
+
+        // Render how-to
+        const howto = categories.howto?.items || [];
+        const howtoHtml = howto.map((doc) => `
+          <div style="margin: 12px 0; padding: 10px; border-left: 3px solid #2867a0; background: #f9f9f9;">
+            <strong>${doc.title}</strong>
+            <div style="margin-top: 6px;">
+              <a href="${doc.path}" target="_blank" style="color: #2867a0; text-decoration: none; font-weight: 600;">
+                Consultar guia →
+              </a>
+            </div>
+          </div>
+        `).join('');
+        byId('helpHowtoContent').innerHTML = howtoHtml || '<p>Nenhum guia disponível.</p>';
+
+        // Render reference
+        const reference = categories.reference?.items || [];
+        const referenceHtml = reference.map((doc) => `
+          <div style="margin: 12px 0; padding: 10px; border-left: 3px solid #8b5a8b; background: #f9f9f9;">
+            <strong>${doc.title}</strong>
+            <div style="margin-top: 6px;">
+              <a href="${doc.path}" target="_blank" style="color: #8b5a8b; text-decoration: none; font-weight: 600;">
+                Consultar referência →
+              </a>
+            </div>
+          </div>
+        `).join('');
+        byId('helpReferenceContent').innerHTML = referenceHtml || '<p>Nenhuma referência disponível.</p>';
+
+        // Render explanation
+        const explanation = categories.explanation?.items || [];
+        const explanationHtml = explanation.map((doc) => `
+          <div style="margin: 12px 0; padding: 10px; border-left: 3px solid #b8860b; background: #f9f9f9;">
+            <strong>${doc.title}</strong>
+            <div style="margin-top: 6px;">
+              <a href="${doc.path}" target="_blank" style="color: #b8860b; text-decoration: none; font-weight: 600;">
+                Ler explicação →
+              </a>
+            </div>
+          </div>
+        `).join('');
+        byId('helpExplanationContent').innerHTML = explanationHtml || '<p>Nenhuma explicação disponível.</p>';
+      } catch (error) {
+        const message = error.message || 'Erro ao carregar documentação.';
+        byId('helpAllContent').innerHTML = `<p style="color: #9a2e2e;"><strong>Erro:</strong> ${message}</p>`;
+        byId('helpTutorialsContent').innerHTML = `<p style="color: #9a2e2e;"><strong>Erro:</strong> ${message}</p>`;
+        byId('helpHowtoContent').innerHTML = `<p style="color: #9a2e2e;"><strong>Erro:</strong> ${message}</p>`;
+        byId('helpReferenceContent').innerHTML = `<p style="color: #9a2e2e;"><strong>Erro:</strong> ${message}</p>`;
+        byId('helpExplanationContent').innerHTML = `<p style="color: #9a2e2e;"><strong>Erro:</strong> ${message}</p>`;
+      }
+    }
+
+    function bindMenuBar() {
+      const menuItems = document.querySelectorAll('.menubar span');
+      menuItems.forEach((item) => {
+        if (item.textContent.trim() === 'Help') {
+          item.addEventListener('click', () => {
+            const helpButton = document.querySelector('[data-page="helpPage"]');
+            if (helpButton) {
+              helpButton.click();
+              loadDocumentation().catch((error) => console.error('Erro ao carreguar docs:', error));
+            }
+          });
+        }
+      });
+    }
+
     function bootstrap() {
       bindNavigation();
       bindActions();
+      bindMenuBar();
       homeHealth().catch((error) => setOutput('Error', { message: error.message }));
     }
 

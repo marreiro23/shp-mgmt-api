@@ -29,7 +29,9 @@ import {
   deleteItemPermission,
   exportResults,
   getConfig,
+  getDocumentation,
   listFrontendCommands,
+  listDatabaseRecords,
   getInventoryDatabase,
   importConfigurationAndPermissions,
   listChannelMembers,
@@ -60,6 +62,7 @@ const router = express.Router();
 router.use(frontendCommandLogger);
 
 router.get('/config', getConfig);
+router.get('/docs', getDocumentation);
 router.get('/inventory/database', getInventoryDatabase);
 router.post('/authenticate', authenticate);
 router.get('/sites', listSites);
@@ -100,6 +103,7 @@ router.post('/admin/update-scopes', updateAppRegistrationScopes);
 router.get('/operations/:operationId', getOperationStatus);
 router.get('/audit/events', listAuditEvents);
 router.get('/frontend-commands', listFrontendCommands);
+router.get('/database/records', listDatabaseRecords);
 router.get('/admin-governance/export/package', getExportPackageContract);
 router.post('/admin-governance/import/preview', previewImportPackage);
 router.post('/admin-governance/import/execute', executeImportPackage);
