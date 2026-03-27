@@ -1,0 +1,571 @@
+{
+  "info": {
+    "name": "SharePoint Management API - shp-mgmt-api",
+    "description": "Coleção completa de testes para API de gestão de SharePoint\n\nEndpoints para:\n- Listagem de sites, usuários, grupos e teams\n- Sincronização de recursos\n- Criação de sites (subsite, root level, por clonagem)\n- Interrogação de base de dados\n- Histórico de auditoria",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health & Config",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "API Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/config",
+              "host": ["{{api_url}}"],
+              "path": ["config"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "SharePoint Sites",
+      "item": [
+        {
+          "name": "List Sites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sites",
+              "host": ["{{api_url}}"],
+              "path": ["sites"]
+            }
+          }
+        },
+        {
+          "name": "List Sites (top=5)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sites?top=5",
+              "host": ["{{api_url}}"],
+              "path": ["sites"],
+              "query": [
+                {
+                  "key": "top",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Sites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sites?search=marketing&top=10",
+              "host": ["{{api_url}}"],
+              "path": ["sites"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "marketing"
+                },
+                {
+                  "key": "top",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Microsoft 365 Groups",
+      "item": [
+        {
+          "name": "List Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/groups",
+              "host": ["{{api_url}}"],
+              "path": ["groups"]
+            }
+          }
+        },
+        {
+          "name": "List Groups (top=5)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/groups?top=5",
+              "host": ["{{api_url}}"],
+              "path": ["groups"],
+              "query": [
+                {
+                  "key": "top",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Entra ID Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/users",
+              "host": ["{{api_url}}"],
+              "path": ["users"]
+            }
+          }
+        },
+        {
+          "name": "List Users (top=10)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/users?top=10",
+              "host": ["{{api_url}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "top",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/users?search=admin",
+              "host": ["{{api_url}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "admin"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Microsoft Teams",
+      "item": [
+        {
+          "name": "List Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/teams",
+              "host": ["{{api_url}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Search Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/teams?search=dev",
+              "host": ["{{api_url}}"],
+              "path": ["teams"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "dev"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Synchronization",
+      "item": [
+        {
+          "name": "Get Sync Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sync/status",
+              "host": ["{{api_url}}"],
+              "path": ["sync", "status"]
+            }
+          }
+        },
+        {
+          "name": "Run Full Sync",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sync/run-full",
+              "host": ["{{api_url}}"],
+              "path": ["sync", "run-full"]
+            }
+          }
+        },
+        {
+          "name": "Sync Sites Only",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sync/run-sites",
+              "host": ["{{api_url}}"],
+              "path": ["sync", "run-sites"]
+            }
+          }
+        },
+        {
+          "name": "Sync Users Only",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sync/run-users",
+              "host": ["{{api_url}}"],
+              "path": ["sync", "run-users"]
+            }
+          }
+        },
+        {
+          "name": "Sync Groups Only",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sync/run-groups",
+              "host": ["{{api_url}}"],
+              "path": ["sync", "run-groups"]
+            }
+          }
+        },
+        {
+          "name": "Sync Teams Only",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/sync/run-teams",
+              "host": ["{{api_url}}"],
+              "path": ["sync", "run-teams"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Sites",
+      "item": [
+        {
+          "name": "Create Subsite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Test Subsite {{$timestamp}}\",\n  \"name\": \"test-subsite-{{$timestamp}}\",\n  \"description\": \"Test subsite created via API\",\n  \"createType\": \"subsite\",\n  \"template\": \"STS#3\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/sites/{{parent_site_id}}/sites",
+              "host": ["{{api_url}}"],
+              "path": ["sites", "{{parent_site_id}}", "sites"]
+            }
+          },
+          "description": "Criar um subsite em um site pai existente\n\nRequer:\n- parent_site_id: ID do site pai\n\nParâmetros opcionais:\n- template: Template do site (ex: STS#3 para Team Site)\n- createType: Deve ser 'subsite' (valor padrão)"
+        },
+        {
+          "name": "Create Root Site (Global Marketing)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Global Marketing\",\n  \"name\": \"gm-root\",\n  \"description\": \"Root-level site para marketing global\",\n  \"createType\": \"root\",\n  \"template\": \"STS#3\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/sites/unused/sites",
+              "host": ["{{api_url}}"],
+              "path": ["sites", "unused", "sites"]
+            }
+          },
+          "description": "Criar um site de nível root (não é subsite)\n\nExemplo: \"Global Marketing\" como site de raiz\n\nParâmetros:\n- createType: DEVE ser 'root'\n- displayName: Nome do site\n- name: Identificador único\n- template: Template do site (ex: STS#3)"
+        },
+        {
+          "name": "Create Root Site (Team Site)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Engineering Team\",\n  \"name\": \"engineering-root\",\n  \"description\": \"Root team site para engenharia\",\n  \"createType\": \"root\",\n  \"template\": \"TEAMCHANNEL#0\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/sites/unused/sites",
+              "host": ["{{api_url}}"],
+              "path": ["sites", "unused", "sites"]
+            }
+          },
+          "description": "Criar um site de nível root como Team Site\n\nVariante com template de Team Channel\n\nParâmetros:\n- createType: 'root'\n- template: 'TEAMCHANNEL#0' ou 'STS#3'"
+        },
+        {
+          "name": "Clone Existing Site",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Marketing Clone {{$timestamp}}\",\n  \"name\": \"marketing-clone-{{$timestamp}}\",\n  \"description\": \"Clone of existing marketing site\",\n  \"createType\": \"clone\",\n  \"cloneFromSiteId\": \"example.sharepoint.com,00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000000\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/sites/unused/sites",
+              "host": ["{{api_url}}"],
+              "path": ["sites", "unused", "sites"]
+            }
+          },
+          "description": "Clonar um site existente como template\n\nCopia a estrutura e modelo de um site existente\n\nRequer:\n- cloneFromSiteId: ID do site a ser clonado\n\nParâmetros:\n- createType: DEVE ser 'clone'\n- displayName: Nome do novo site\n- name: Identificador único\n- description: Descrição (será incluida referência ao site de origem)"
+        },
+        {
+          "name": "Clone as Subsite",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Sales Clone {{$timestamp}}\",\n  \"name\": \"sales-clone-{{$timestamp}}\",\n  \"description\": \"Clone of sales site under parent\",\n  \"createType\": \"clone\",\n  \"cloneFromSiteId\": \"example.sharepoint.com,00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000000\",\n  \"parentSiteId\": \"parent-site-id-here\"\n}"
+            },
+            "url": {
+              "raw": "{{api_url}}/sites/unused/sites",
+              "host": ["{{api_url}}"],
+              "path": ["sites", "unused", "sites"]
+            }
+          },
+          "description": "Clonar um site como subsite dentro de um site pai\n\nCombina clonagem com criação de subsite\n\nParâmetros:\n- createType: 'clone'\n- cloneFromSiteId: Source site ID\n- parentSiteId: Parent site para criar como subsite"
+        }
+      ]
+    },
+    {
+      "name": "Database Records",
+      "item": [
+        {
+          "name": "Get DB Sites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/database/records?table=sharepoint_sites&limit=5",
+              "host": ["{{api_url}}"],
+              "path": ["database", "records"],
+              "query": [
+                {
+                  "key": "table",
+                  "value": "sharepoint_sites"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get DB Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/database/records?table=sharepoint_users&limit=10",
+              "host": ["{{api_url}}"],
+              "path": ["database", "records"],
+              "query": [
+                {
+                  "key": "table",
+                  "value": "sharepoint_users"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get DB Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/database/records?table=sharepoint_groups&limit=5",
+              "host": ["{{api_url}}"],
+              "path": ["database", "records"],
+              "query": [
+                {
+                  "key": "table",
+                  "value": "sharepoint_groups"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get DB Teams",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/database/records?table=sharepoint_teams&limit=5",
+              "host": ["{{api_url}}"],
+              "path": ["database", "records"],
+              "query": [
+                {
+                  "key": "table",
+                  "value": "sharepoint_teams"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get DB Drives",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/database/records?table=sharepoint_drives&limit=5",
+              "host": ["{{api_url}}"],
+              "path": ["database", "records"],
+              "query": [
+                {
+                  "key": "table",
+                  "value": "sharepoint_drives"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit & Activity",
+      "item": [
+        {
+          "name": "Get Audit Trail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/audit/trail",
+              "host": ["{{api_url}}"],
+              "path": ["audit", "trail"]
+            }
+          }
+        },
+        {
+          "name": "Get Command History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_url}}/commands/history",
+              "host": ["{{api_url}}"],
+              "path": ["commands", "history"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "api_url",
+      "value": "http://localhost:3001/api/v1/sharepoint",
+      "type": "string"
+    },
+    {
+      "key": "parent_site_id",
+      "value": "example.sharepoint.com,00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000000",
+      "type": "string"
+    }
+  ]
+}

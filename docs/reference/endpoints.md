@@ -24,7 +24,8 @@ Referencia completa dos endpoints ativos em /api/v1/sharepoint.
 | Metodo | Endpoint | Descricao |
 | --- | --- | --- |
 | GET | /sites | Lista sites por busca |
-| POST | /sites/:parentSiteId/sites | Cria subsite no site pai especificado |
+| GET | /teams | Lista times (origem: Microsoft Teams) |
+| POST | /sites/:parentSiteId/sites | Cria site (subsite, root, ou por clonagem) |
 | GET | /sites/:siteId/drives | Lista drives do site |
 | POST | /sites/:siteId/drives | Cria drive (provisiona documentLibrary) |
 | GET | /sites/:siteId/libraries | Lista bibliotecas do site |
@@ -32,7 +33,13 @@ Referencia completa dos endpoints ativos em /api/v1/sharepoint.
 | PATCH | /sites/:siteId/libraries/:listId | Atualiza biblioteca |
 | PATCH | /drives/:driveId | Atualiza drive |
 
-Exemplo de criacao de subsite:
+### Criacao de Sites
+
+O endpoint `POST /sites/:parentSiteId/sites` suporta tres modos de criacao via parametro `createType`:
+
+#### 1. Criar Subsite (padrão)
+
+Cria um site subordinado dentro de um site pai existente.
 
 ```http
 POST /api/v1/sharepoint/sites/{parentSiteId}/sites
@@ -41,9 +48,94 @@ Content-Type: application/json
 {
   "displayName": "Subsite de Projetos",
   "name": "projetos",
-  "description": "Subsite para gestao de projetos"
+  "description": "Subsite para gestao de projetos",
+  "createType": "subsite",
+  "template": "STS#3"
 }
 ```
+
+Parametros:
+- `createType`: "subsite" (obrigatorio neste modo)
+- `displayName`: Nome do site (obrigatorio)
+- `name`: Identificador unico/URL (obrigatorio)
+- `template`: Template do site (opcional, padrao: STS#3 para Team Site)
+- `description`: Descricao (opcional)
+
+Nota: O `parentSiteId` e obrigatorio na rota.
+
+#### 2. Criar Site de Nivel Root
+
+Cria um site independente de nivel raiz (nao um subsite). Exemplo: "Global Marketing".
+
+```http
+POST /api/v1/sharepoint/sites/unused-param/sites
+Content-Type: application/json
+
+{
+  "displayName": "Global Marketing",
+  "name": "gm-root",
+  "description": "Site raiz para marketing global",
+  "createType": "root",
+  "template": "STS#3"
+}
+```
+
+Parametros:
+- `createType`: "root" (obrigatorio neste modo)
+- `displayName`: Nome do site (obrigatorio)
+- `name`: Identificador unico (obrigatorio)
+- `template`: Template do site (STS#3 para Team Site, STS#0 para blank)
+- `description`: Descricao (opcional)
+- `parentSiteId`: Sera ignorado neste modo (use "unused-param" na rota)
+
+Nota: A criacao de sites root requer permissoes elevadas de administrador.
+
+#### 3. Clonar Site Existente
+
+Copia a estrutura e template de um site existente.
+
+```http
+POST /api/v1/sharepoint/sites/unused-param/sites
+Content-Type: application/json
+
+{
+  "displayName": "Marketing Clone",
+  "name": "marketing-clone",
+  "description": "Clone of existing marketing site",
+  "createType": "clone",
+  "cloneFromSiteId": "example.sharepoint.com,00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000000"
+}
+```
+
+Parametros:
+- `createType`: "clone" (obrigatorio neste modo)
+- `displayName`: Nome do novo site (obrigatorio)
+- `name`: Identificador unico (obrigatorio)
+- `cloneFromSiteId`: ID do site a ser clonado (obrigatorio)
+- `parentSiteId`: Para criar como subsite em um site pai (opcional)
+- `description`: Descricao (opcional, incluira referencia ao site de origem)
+
+#### 4. Clonar como Subsite
+
+Combina clonagem com criacao de subsite.
+
+```http
+POST /api/v1/sharepoint/sites/{parentSiteId}/sites
+Content-Type: application/json
+
+{
+  "displayName": "Sales Clone",
+  "name": "sales-clone",
+  "description": "Clone of sales site under parent",
+  "createType": "clone",
+  "cloneFromSiteId": "example.sharepoint.com,..."
+}
+```
+
+Parametros:
+- `createType`: "clone"
+- `cloneFromSiteId`: ID do site a ser clonado
+- `parentSiteId`: Fornecido na rota (requere o site a ser criado como subsite)
 
 Exemplo de criacao de biblioteca:
 
@@ -152,7 +244,68 @@ Content-Type: application/json
 | DELETE | /teams/:teamId/channels/:channelId/members/:membershipId | Remove membro do canal |
 | GET | /teams/:teamId/channels/:channelId/content | Lista mensagens e arquivos do canal |
 
-## Exportacao
+## Sincronizacao e Recursos
+
+A API sincroniza periodicamente (a cada 5 minutos por padrao) os seguintes recursos com o banco de dados PostgreSQL:
+- SharePoint Sites
+- Usuarios Entra ID
+- Grupos Microsoft 365
+- Teams
+- Drives e Bibliotecas
+
+| Metodo | Endpoint | Descricao |
+| --- | --- | --- |
+| GET | /sync/status | Obtém status da sincronização (ultima execucao, proxima execucao, erros) |
+| POST | /sync/run-full | Executa sincronizacao completa sob demanda |
+| POST | /sync/run-sites | Sincroniza apenas sites |
+| POST | /sync/run-users | Sincroniza apenas usuarios |
+| POST | /sync/run-groups | Sincroniza apenas grupos |
+| POST | /sync/run-teams | Sincroniza apenas teams |
+| POST | /sync/run-drives-and-libraries | Sincroniza drives e bibliotecas |
+
+Exemplo de obtencao de status:
+
+```http
+GET /api/v1/sharepoint/sync/status
+```
+
+Resposta esperada:
+
+```json
+{
+  "success": true,
+  "data": {
+    "isRunning": false,
+    "lastSync": "2024-01-15T10:30:45.123Z",
+    "nextSync": "2024-01-15T10:35:45.123Z",
+    "syncInterval": 300000,
+    "lastError": null,
+    "resourceStats": {
+      "sites": 42,
+      "users": 156,
+      "groups": 23,
+      "teams": 8
+    }
+  }
+}
+```
+
+Exemplo de execucao de sincronizacao sob demanda:
+
+```http
+POST /api/v1/sharepoint/sync/run-full
+Content-Type: application/json
+```
+
+Nota: A sincronizacao comeca automaticamente durante o startup do servidor e continua a cada intervalo configurado.
+
+## Auditoria e Recursos do Banco de Dados
+
+| Metodo | Endpoint | Descricao |
+| --- | --- | --- |
+| GET | /database/records | Obtem registros do banco de dados (postgresql) |
+| GET | /audit/trail | Obtém trilha de operacoes |
+
 
 Endpoint:
 

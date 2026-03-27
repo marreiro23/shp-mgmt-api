@@ -451,22 +451,54 @@ export async function createSite(req, res) {
     const { parentSiteId } = req.params;
     const displayName = String(req.body.displayName || '').trim();
     const name = String(req.body.name || '').trim();
+    const createType = String(req.body.createType || 'subsite').toLowerCase();
+    const template = req.body.template || undefined;
+    const description = req.body.description || undefined;
+    const cloneFromSiteId = req.body.cloneFromSiteId || undefined;
 
-    if (!parentSiteId) {
-      return sendValidationError(res, req, 'parentSiteId é obrigatório (parâmetro de rota).');
-    }
+    // Validações básicas
     if (!displayName || !name) {
       return sendValidationError(res, req, 'displayName e name são obrigatórios.');
     }
 
-    const created = await sharePointGraphService.createSite(parentSiteId, {
+    // Validações específicas por tipo de criação
+    if (createType === 'subsite' && !parentSiteId) {
+      return sendValidationError(res, req, 'parentSiteId é obrigatório para criar subsite.');
+    }
+    if (createType === 'clone' && !cloneFromSiteId) {
+      return sendValidationError(res, req, 'cloneFromSiteId é obrigatório para clonar um site.');
+    }
+
+    // Construir payload com opções de criação
+    const siteInput = {
       displayName,
       name,
-      description: req.body.description
-    });
+      createType,
+      description,
+      template
+    };
+
+    if (cloneFromSiteId) {
+      siteInput.cloneFromSiteId = cloneFromSiteId;
+    }
+
+    // parentSiteId pode ser necessário para alguns tipos
+    const resolvedParentSiteId = createType === 'clone' 
+      ? (req.body.parentSiteId || parentSiteId)
+      : parentSiteId;
+
+    const created = await sharePointGraphService.createSite(resolvedParentSiteId, siteInput);
 
     persistResourceSafely(() => resourcePersistenceService.upsertSites([created]));
-    return res.status(201).json({ success: true, data: created });
+    
+    return res.status(201).json({
+      success: true,
+      data: created,
+      metadata: {
+        createType,
+        createdAt: new Date().toISOString()
+      }
+    });
   } catch (error) {
     return sendError(res, req, error, 'Falha ao criar site SharePoint.');
   }

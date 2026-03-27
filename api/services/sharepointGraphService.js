@@ -283,14 +283,143 @@ class SharePointGraphService {
       throw error;
     }
 
+    // Determina tipo de criação de site
+    const createType = String(siteInput?.createType || 'subsite').toLowerCase();
+
+    if (createType === 'root') {
+      // Criar site root (nível raiz)
+      return this.createRootSite(displayName, name, siteInput);
+    } else if (createType === 'clone' && siteInput?.cloneFromSiteId) {
+      // Clonar site existente como modelo
+      return this.cloneSite(siteInput.cloneFromSiteId, displayName, name, siteInput);
+    } else {
+      // Criar subsite (padrão)
+      return this.createSubsite(parentSiteId, displayName, name, siteInput);
+    }
+  }
+
+  async createSubsite(parentSiteId, displayName, name, siteInput = {}) {
+    if (!parentSiteId) {
+      const error = new Error('parentSiteId é obrigatório para criar um subsite.');
+      error.status = 400;
+      throw error;
+    }
+
     const payload = { displayName, name };
     if (siteInput?.description) {
       payload.description = String(siteInput.description);
+    }
+    if (siteInput?.template) {
+      payload.template = String(siteInput.template);
     }
 
     return this.requestGraph('POST', `/sites/${encodeURIComponent(parentSiteId)}/sites`, {
       data: payload
     });
+  }
+
+  async createRootSite(displayName, name, siteInput = {}) {
+    // Criar um site root (nível raiz como "Global Marketing")
+    // Usa POST /sites com configuração específica
+    
+    const payload = {
+      displayName,
+      name,
+      webTemplate: siteInput?.template || 'STS#3' // STS#3 = Team site, STS#0 = Blank
+    };
+
+    if (siteInput?.description) {
+      payload.description = String(siteInput.description);
+    }
+
+    // Para criar site root, usamos /sites endpoint com payload especial
+    try {
+      return await this.requestGraph('POST', '/sites', {
+        data: payload
+      });
+    } catch (error) {
+      // Alternativa: usar /teams para criar Team site (mais comum em M365)
+      if (error.message?.includes('400') || error.message?.includes('invalid')) {
+        return this.createTeamSite(displayName, name, siteInput);
+      }
+      throw error;
+    }
+  }
+
+  async createTeamSite(displayName, name, siteInput = {}) {
+    // Criar Team Site root via Teams endpoint
+    // Teams são melhor forma de criar "sites root" em M365 moderno
+    
+    const payload = {
+      displayName,
+      description: siteInput?.description || '',
+      template: 'standard' // standard team, private, etc
+    };
+
+    try {
+      const team = await this.requestGraph('POST', '/teams', {
+        data: payload
+      });
+
+      // Se criou team, retorna os dados do site associado
+      if (team?.id) {
+        // Team foi criado - buscar o site associado
+        const siteUrl = `${encodeURIComponent(team.id)}/sites/root`;
+        const site = await this.requestGraph('GET', `/teams/${encodeURIComponent(team.id)}/sites/root`);
+        return {
+          ...site,
+          associatedTeamId: team.id,
+          isTeamSite: true
+        };
+      }
+      return team;
+    } catch (error) {
+      throw new Error(`Falha ao criar Team Site: ${error.message}`);
+    }
+  }
+
+  async cloneSite(sourceSiteId, displayName, name, siteInput = {}) {
+    // Clonar um site existente como modelo
+    // Copia estrutura e conteúdo do site origem
+    
+    if (!sourceSiteId) {
+      const error = new Error('cloneFromSiteId é obrigatório para clonar um site.');
+      error.status = 400;
+      throw error;
+    }
+
+    try {
+      // Primeiro, busca informações do site origem
+      const sourceSite = await this.requestGraph('GET', `/sites/${encodeURIComponent(sourceSiteId)}`);
+
+      // Usa POST /sites/{sourceSiteId}/sites para criar clone como subsite
+      // Ou cria novo site com mesmo template
+      const template = sourceSite?.webTemplate || 'STS#3';
+      
+      const payload = {
+        displayName,
+        name,
+        description: siteInput?.description || `Clone of ${sourceSite?.displayName || sourceSiteId}`,
+        template
+      };
+
+      // Se tem parentSiteId, cria como subsite do clone
+      const parentSiteId = siteInput?.parentSiteId || sourceSite?.parentReference?.id;
+      
+      if (parentSiteId) {
+        return this.requestGraph('POST', `/sites/${encodeURIComponent(parentSiteId)}/sites`, {
+          data: payload
+        });
+      } else {
+        // Cria como site root
+        return this.createRootSite(displayName, name, {
+          template,
+          description: payload.description
+        });
+      }
+    } catch (error) {
+      throw new Error(`Falha ao clonar site: ${error.message}`);
+    }
   }
 
   async listDrives(siteId) {
