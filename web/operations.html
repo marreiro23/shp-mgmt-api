@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>shp-mgmt-api - Operações SharePoint</title>
+  <style>
+    :root {
+      --bg: #faf8f0;
+      --ink: #1d2529;
+      --line: #d8ceb8;
+      --brand: #0f5f7a;
+      --alt: #c95f18;
+    }
+
+    body {
+      margin: 0;
+      font-family: Cambria, Georgia, serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    .wrap {
+      width: min(1100px, 94vw);
+      margin: 20px auto;
+    }
+
+    h1 { margin: 0 0 12px; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+    }
+
+    label { font-size: 0.85rem; display: block; margin-bottom: 4px; }
+    input, textarea, button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      font: inherit;
+    }
+
+    button {
+      background: var(--brand);
+      color: #fff;
+      cursor: pointer;
+    }
+
+    button.secondary { background: var(--alt); }
+    textarea { min-height: 120px; }
+
+    pre {
+      background: #1f2226;
+      color: #c7f1ff;
+      border-radius: 10px;
+      padding: 12px;
+      overflow: auto;
+      min-height: 260px;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Operações SharePoint via Microsoft Graph</h1>
+    <div class="toolbar">
+      <a href="index.html">Voltar ao Painel</a>
+      <a href="collaboration.html">Teams, Entra e Exportação</a>
+      <a href="admin.html">App Registration</a>
+    </div>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Buscar site</label>
+          <input id="siteSearch" placeholder="ex: Finance ou *" value="Drone*">
+        </div>
+        <div>
+          <label>Top</label>
+          <input id="siteTop" value="10">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="btnListSites" type="button">Listar Sites</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Site ID</label>
+          <input id="siteId" placeholder="site-id">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="btnListDrives" type="button">Listar Bibliotecas</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Drive ID</label>
+          <input id="driveId" placeholder="drive-id">
+        </div>
+        <div>
+          <label>Pasta (opcional)</label>
+          <input id="drivePath" placeholder="Documentos/Projetos">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="btnListChildren" type="button">Listar Itens</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Nome da nova pasta</label>
+          <input id="folderName" placeholder="NovaPasta">
+        </div>
+        <div>
+          <label>Pasta pai (opcional)</label>
+          <input id="folderParent" placeholder="Documentos/Projetos">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="btnCreateFolder" type="button">Criar Pasta</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Nome do arquivo</label>
+          <input id="fileName" placeholder="readme.txt">
+        </div>
+        <div>
+          <label>Pasta destino (opcional)</label>
+          <input id="fileParent" placeholder="Documentos/Projetos">
+        </div>
+      </div>
+      <label>Conteúdo do arquivo texto</label>
+      <textarea id="fileContent" placeholder="Conteúdo enviado para o SharePoint"></textarea>
+      <div class="grid">
+        <div><button id="btnUploadFile" class="secondary" type="button">Upload Arquivo Texto</button></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Item ID</label>
+          <input id="itemId" placeholder="item-id">
+        </div>
+        <div>
+          <label>Novo nome</label>
+          <input id="newName" placeholder="novo-nome.txt">
+        </div>
+      </div>
+      <div class="grid">
+        <div><button id="btnRenameItem" type="button">Renomear</button></div>
+        <div><button id="btnDeleteItem" class="secondary" type="button">Excluir</button></div>
+      </div>
+    </section>
+
+    <pre id="result">Aguardando operações...</pre>
+  </main>
+
+  <script>
+    const API = '/api/v1/sharepoint';
+
+    function showResult(title, payload) {
+      document.getElementById('result').textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+    }
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      if (res.status === 204) return { success: true, status: 204 };
+      return res.json();
+    }
+
+    async function listSites() {
+      const search = encodeURIComponent(document.getElementById('siteSearch').value || '*');
+      const top = encodeURIComponent(document.getElementById('siteTop').value || '10');
+      const data = await fetchJson(`${API}/sites?search=${search}&top=${top}`);
+      showResult('Sites', data);
+    }
+
+    async function listDrives() {
+      const siteId = document.getElementById('siteId').value.trim();
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(siteId)}/drives`);
+      showResult('Bibliotecas', data);
+    }
+
+    async function listChildren() {
+      const driveId = document.getElementById('driveId').value.trim();
+      const path = document.getElementById('drivePath').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/children?path=${encodeURIComponent(path)}`);
+      showResult('Itens', data);
+    }
+
+    async function createFolder() {
+      const driveId = document.getElementById('driveId').value.trim();
+      const name = document.getElementById('folderName').value.trim();
+      const parentPath = document.getElementById('folderParent').value.trim();
+
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, parentPath })
+      });
+
+      showResult('Criar Pasta', data);
+    }
+
+    async function uploadFile() {
+      const driveId = document.getElementById('driveId').value.trim();
+      const fileName = document.getElementById('fileName').value.trim();
+      const parentPath = document.getElementById('fileParent').value.trim();
+      const content = document.getElementById('fileContent').value;
+
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/files`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName, parentPath, content })
+      });
+
+      showResult('Upload Arquivo', data);
+    }
+
+    async function renameItem() {
+      const driveId = document.getElementById('driveId').value.trim();
+      const itemId = document.getElementById('itemId').value.trim();
+      const newName = document.getElementById('newName').value.trim();
+
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newName })
+      });
+
+      showResult('Renomear Item', data);
+    }
+
+    async function deleteItem() {
+      const driveId = document.getElementById('driveId').value.trim();
+      const itemId = document.getElementById('itemId').value.trim();
+
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}`, {
+        method: 'DELETE'
+      });
+
+      showResult('Excluir Item', data);
+    }
+
+    document.getElementById('btnListSites').addEventListener('click', listSites);
+    document.getElementById('btnListDrives').addEventListener('click', listDrives);
+    document.getElementById('btnListChildren').addEventListener('click', listChildren);
+    document.getElementById('btnCreateFolder').addEventListener('click', createFolder);
+    document.getElementById('btnUploadFile').addEventListener('click', uploadFile);
+    document.getElementById('btnRenameItem').addEventListener('click', renameItem);
+    document.getElementById('btnDeleteItem').addEventListener('click', deleteItem);
+  </script>
+</body>
+</html>

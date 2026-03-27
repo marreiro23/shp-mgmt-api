@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>shp-mgmt-api - Teams, Entra e Exportação</title>
+  <style>
+    :root {
+      --bg: #f3efe4;
+      --ink: #17313a;
+      --panel: rgba(255, 252, 244, 0.94);
+      --line: #d3c7ab;
+      --brand: #0d6a78;
+      --brand-2: #d16a16;
+      --muted: #5d6d73;
+      --accent: #c7e6ea;
+      --danger: #b84b37;
+      --shadow: 0 18px 44px rgba(19, 35, 41, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Cambria, Georgia, serif;
+      background:
+        radial-gradient(circle at top left, rgba(209, 106, 22, 0.18), transparent 24%),
+        radial-gradient(circle at 90% 15%, rgba(13, 106, 120, 0.22), transparent 22%),
+        linear-gradient(180deg, #f8f3e7 0%, var(--bg) 100%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(1240px, 94vw);
+      margin: 22px auto 40px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(13, 106, 120, 0.95), rgba(11, 62, 75, 0.95));
+      color: #fffdf9;
+      padding: 26px;
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: auto -40px -60px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.24), transparent 66%);
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(2rem, 3vw, 2.6rem);
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      margin: 0;
+      max-width: 70ch;
+      opacity: 0.92;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .toolbar a,
+    .toolbar button,
+    .action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+      transition: transform 140ms ease, background 140ms ease;
+    }
+
+    .toolbar button:hover,
+    .toolbar a:hover,
+    .action-button:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(24, 39, 45, 0.08);
+    }
+
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 1.2rem;
+    }
+
+    .panel p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    input,
+    select,
+    textarea,
+    button {
+      width: 100%;
+      font: inherit;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .button-row button,
+    .button-row .action-button {
+      flex: 1 1 180px;
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: #fff;
+      background: var(--brand);
+    }
+
+    .button-row .secondary { background: var(--brand-2); }
+    .button-row .danger { background: var(--danger); }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .status-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: linear-gradient(180deg, #fffef9, #f6f0e3);
+    }
+
+    .status-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 540px;
+      border-radius: 16px;
+      background: #1d2328;
+      color: #d9f3ff;
+      padding: 16px;
+      overflow: auto;
+      line-height: 1.45;
+      font-size: 0.86rem;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 0;
+    }
+
+    .chip {
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--accent);
+      font-size: 0.84rem;
+    }
+
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      pre {
+        min-height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1>Teams, Entra ID e Exportação</h1>
+      <p class="subtitle">Painel operacional para explorar canais do Microsoft Teams, bibliotecas e drives SharePoint, gerenciar membros de canais e grupos Entra ID e exportar resultados em JSON, CSV e XLSX.</p>
+      <div class="toolbar">
+        <a href="index.html">Painel Inicial</a>
+        <a href="operations.html">Operações SharePoint</a>
+        <a href="admin.html">App Registration</a>
+        <button id="btnHealth" type="button">Health</button>
+        <button id="btnAuthenticate" type="button">Autenticar Graph</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="stack">
+        <section class="panel">
+          <h2>Exportação de resultados</h2>
+          <p>Gera download imediato em JSON ou CSV a partir dos endpoints ativos da API.</p>
+          <div class="grid">
+            <div>
+              <label>Fonte</label>
+              <select id="exportSource">
+                <option value="drive-files">Arquivos do Drive</option>
+                <option value="site-drives">Drives do Site</option>
+                <option value="site-libraries">Bibliotecas do Site</option>
+                <option value="team-channels">Canais do Teams</option>
+                <option value="team-channel-content">Conteúdo do Canal</option>
+                <option value="team-channel-members">Membros do Canal</option>
+                <option value="groups">Grupos</option>
+                <option value="users">Usuários</option>
+                <option value="user-licenses">Licenças de Usuário</option>
+                <option value="item-permissions">Permissões de Item</option>
+              </select>
+            </div>
+            <div>
+              <label>Formato</label>
+              <select id="exportFormat">
+                <option value="json">JSON</option>
+                <option value="csv">CSV</option>
+                <option value="xlsx">XLSX</option>
+              </select>
+            </div>
+            <div>
+              <label>Site ID</label>
+              <input id="exportSiteId" placeholder="site-id">
+            </div>
+            <div>
+              <label>Drive ID</label>
+              <input id="exportDriveId" placeholder="drive-id">
+            </div>
+            <div>
+              <label>Item ID</label>
+              <input id="exportItemId" placeholder="item-id">
+            </div>
+            <div>
+              <label>User ID</label>
+              <input id="exportUserId" placeholder="user-id">
+            </div>
+            <div>
+              <label>Pasta do drive</label>
+              <input id="exportPath" placeholder="Documentos/Projetos">
+            </div>
+            <div>
+              <label>Team ID</label>
+              <input id="exportTeamId" placeholder="team-id">
+            </div>
+            <div>
+              <label>Channel ID</label>
+              <input id="exportChannelId" placeholder="channel-id">
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="btnExport" type="button">Exportar e baixar</button>
+            <button id="btnPreviewExport" class="secondary" type="button">Pré-visualizar JSON</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Arquivos e metadados</h2>
+          <p>Consulta metadados dos arquivos do drive já no formato normalizado pelo backend.</p>
+          <div class="grid">
+            <div>
+              <label>Drive ID</label>
+              <input id="metaDriveId" placeholder="drive-id">
+            </div>
+            <div>
+              <label>Pasta</label>
+              <input id="metaPath" placeholder="Documentos/Projetos">
+            </div>
+            <div>
+              <label>Top</label>
+              <input id="metaTop" value="100">
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="btnFilesMetadata" type="button">Listar metadados</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Bibliotecas e drives SharePoint</h2>
+          <p>Gerencia document libraries (listas do tipo documentLibrary) e drives associados no site.</p>
+          <div class="grid">
+            <div>
+              <label>Site ID</label>
+              <input id="librarySiteId" placeholder="site-id">
+            </div>
+            <div>
+              <label>List ID (biblioteca)</label>
+              <input id="libraryListId" placeholder="list-id para atualização">
+            </div>
+            <div>
+              <label>Drive ID</label>
+              <input id="libraryDriveId" placeholder="drive-id para atualização">
+            </div>
+            <div>
+              <label>Nome (displayName/name)</label>
+              <input id="libraryDisplayName" placeholder="Biblioteca Operacional">
+            </div>
+          </div>
+          <div>
+            <label>Descrição</label>
+            <input id="libraryDescription" placeholder="Descrição da biblioteca ou drive">
+          </div>
+          <div class="button-row">
+            <button id="btnListLibraries" type="button">Listar bibliotecas</button>
+            <button id="btnCreateLibrary" class="secondary" type="button">Criar biblioteca</button>
+            <button id="btnUpdateLibrary" class="secondary" type="button">Atualizar biblioteca</button>
+            <button id="btnCreateDrive" type="button">Criar drive</button>
+            <button id="btnUpdateDrive" class="secondary" type="button">Atualizar drive</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Canais e conteúdo do Teams</h2>
+          <p>Lista canais do time e o conteúdo do canal selecionado, incluindo mensagens e arquivos da pasta associada.</p>
+          <div class="grid">
+            <div>
+              <label>Team ID</label>
+              <input id="teamId" placeholder="team-id">
+            </div>
+            <div>
+              <label>Channel ID</label>
+              <input id="channelId" placeholder="channel-id">
+            </div>
+            <div>
+              <label>Top de mensagens</label>
+              <input id="topMessages" value="25">
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="btnListChannels" type="button">Listar canais</button>
+            <button id="btnListChannelMembers" class="secondary" type="button">Listar membros do canal</button>
+            <button id="btnChannelContent" class="secondary" type="button">Listar conteúdo do canal</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Grupos Entra ID (CRUD parcial)</h2>
+          <p>Lista, cria e atualiza grupos, além de associar e remover membros.</p>
+          <div class="grid">
+            <div>
+              <label>Busca (displayName)</label>
+              <input id="groupSearch" placeholder="Financeiro">
+            </div>
+            <div>
+              <label>Top</label>
+              <input id="groupTop" value="25">
+            </div>
+            <div>
+              <label>Group ID</label>
+              <input id="groupId" placeholder="group-id">
+            </div>
+            <div>
+              <label>Display Name</label>
+              <input id="groupDisplayName" placeholder="Time Financeiro">
+            </div>
+            <div>
+              <label>Mail Nickname</label>
+              <input id="groupMailNickname" placeholder="financeiro">
+            </div>
+            <div>
+              <label>Member Object ID</label>
+              <input id="groupMemberObjectId" placeholder="directory-object-id">
+            </div>
+          </div>
+          <div>
+            <label>Descrição do grupo</label>
+            <input id="groupDescription" placeholder="Descrição do grupo">
+          </div>
+          <div class="button-row">
+            <button id="btnListGroups" type="button">Listar grupos</button>
+            <button id="btnCreateGroup" class="secondary" type="button">Criar grupo</button>
+            <button id="btnUpdateGroup" class="secondary" type="button">Atualizar grupo</button>
+            <button id="btnAddGroupMember" type="button">Adicionar ao grupo</button>
+            <button id="btnRemoveGroupMember" class="danger" type="button">Remover do grupo</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Usuários e licenças</h2>
+          <p>Lista e atualiza usuários, consulta licenças e executa atribuição/revogação de SKUs.</p>
+          <div class="grid">
+            <div>
+              <label>Busca de usuário</label>
+              <input id="userSearch" placeholder="Maria">
+            </div>
+            <div>
+              <label>Top</label>
+              <input id="userTop" value="25">
+            </div>
+            <div>
+              <label>User ID</label>
+              <input id="userId" placeholder="user-id">
+            </div>
+            <div>
+              <label>Job Title</label>
+              <input id="userJobTitle" placeholder="Analista Senior">
+            </div>
+            <div>
+              <label>SKU ID (add)</label>
+              <input id="licenseSkuId" placeholder="sku-guid">
+            </div>
+            <div>
+              <label>SKU ID (remove)</label>
+              <input id="licenseRemoveSkuId" placeholder="sku-guid opcional">
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="btnListUsers" type="button">Listar usuários</button>
+            <button id="btnUpdateUser" class="secondary" type="button">Atualizar usuário</button>
+            <button id="btnListUserLicenses" class="secondary" type="button">Listar licenças</button>
+            <button id="btnAssignUserLicenses" type="button">Atribuir/remover licenças</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Permissões de item SharePoint</h2>
+          <p>Consulta, concede convite e remove permissões em arquivos/pastas por drive/item.</p>
+          <div class="grid">
+            <div>
+              <label>Drive ID</label>
+              <input id="permDriveId" placeholder="drive-id">
+            </div>
+            <div>
+              <label>Item ID</label>
+              <input id="permItemId" placeholder="item-id">
+            </div>
+            <div>
+              <label>Permission ID</label>
+              <input id="permPermissionId" placeholder="permission-id para remoção">
+            </div>
+            <div>
+              <label>Recipient email</label>
+              <input id="permRecipientEmail" placeholder="user@example.com">
+            </div>
+            <div>
+              <label>Roles (vírgula)</label>
+              <input id="permRoles" placeholder="read,write">
+            </div>
+            <div>
+              <label>Mensagem</label>
+              <input id="permMessage" placeholder="Acesso concedido pela API">
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="btnListItemPermissions" type="button">Listar permissões</button>
+            <button id="btnCreateItemPermission" class="secondary" type="button">Conceder permissão</button>
+            <button id="btnDeleteItemPermission" class="danger" type="button">Remover permissão</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Membros de canal do Teams</h2>
+          <p>Inclui ou remove membros usando os endpoints ativos da API. Para criação, roles aceita valores como owner.</p>
+          <div class="grid">
+            <div>
+              <label>Team ID</label>
+              <input id="memberTeamId" placeholder="team-id">
+            </div>
+            <div>
+              <label>Channel ID</label>
+              <input id="memberChannelId" placeholder="channel-id">
+            </div>
+            <div>
+              <label>User ID</label>
+              <input id="memberUserId" placeholder="user-object-id">
+            </div>
+            <div>
+              <label>Membership ID</label>
+              <input id="membershipId" placeholder="membership-id para remoção">
+            </div>
+          </div>
+          <div>
+            <label>Roles (separadas por vírgula)</label>
+            <input id="memberRoles" placeholder="owner">
+          </div>
+          <div class="button-row">
+            <button id="btnAddChannelMember" type="button">Adicionar membro ao canal</button>
+            <button id="btnRemoveChannelMember" class="danger" type="button">Remover membro do canal</button>
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="stack">
+        <section class="panel">
+          <h2>Status operacional</h2>
+          <div class="status-grid">
+            <div class="status-card"><strong>API</strong><span id="apiStatus">-</span></div>
+            <div class="status-card"><strong>Autenticação</strong><span id="authStatus">-</span></div>
+            <div class="status-card"><strong>Última ação</strong><span id="lastAction">-</span></div>
+          </div>
+          <div class="chip-row">
+            <span class="chip">CSV e JSON</span>
+            <span class="chip">XLSX</span>
+            <span class="chip">Site Libraries</span>
+            <span class="chip">Site Drives</span>
+            <span class="chip">Teams Channels</span>
+            <span class="chip">Channel Content</span>
+            <span class="chip">Entra Group Members</span>
+            <span class="chip">Users & Licenses</span>
+            <span class="chip">Item Permissions</span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Saída</h2>
+          <p>Os botões abaixo estão ativos e consomem os endpoints reais da API em <strong>/api/v1/sharepoint</strong>.</p>
+          <pre id="output">Aguardando operação...</pre>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const API = '/api/v1/sharepoint';
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function setOutput(title, payload) {
+      byId('output').textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+      byId('lastAction').textContent = title;
+    }
+
+    function getRoles() {
+      return byId('memberRoles').value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    function parseCommaList(id) {
+      return byId(id).value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    async function fetchJson(url, options) {
+      const response = await fetch(url, options);
+      if (response.status === 204) {
+        return { success: true, status: 204 };
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        return response.json();
+      }
+
+      return { success: response.ok, raw: await response.text(), status: response.status };
+    }
+
+    async function loadHealth() {
+      const data = await fetchJson('/health');
+      byId('apiStatus').textContent = data.status || (data.success ? 'OK' : 'Falha');
+      setOutput('Health', data);
+    }
+
+    async function authenticate() {
+      const data = await fetchJson(`${API}/authenticate`, { method: 'POST' });
+      byId('authStatus').textContent = data.success ? 'Autenticado' : 'Falha';
+      setOutput('Autenticação Graph', data);
+    }
+
+    async function listFilesMetadata() {
+      const driveId = byId('metaDriveId').value.trim();
+      const path = byId('metaPath').value.trim();
+      const top = byId('metaTop').value.trim() || '100';
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/files-metadata?path=${encodeURIComponent(path)}&top=${encodeURIComponent(top)}`);
+      setOutput('Arquivos e Metadados', data);
+    }
+
+    async function listLibraries() {
+      const siteId = byId('librarySiteId').value.trim();
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(siteId)}/libraries`);
+      setOutput('Bibliotecas do Site', data);
+    }
+
+    async function createLibrary() {
+      const siteId = byId('librarySiteId').value.trim();
+      const displayName = byId('libraryDisplayName').value.trim();
+      const description = byId('libraryDescription').value.trim();
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(siteId)}/libraries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, description })
+      });
+      setOutput('Criar biblioteca', data);
+    }
+
+    async function updateLibrary() {
+      const siteId = byId('librarySiteId').value.trim();
+      const listId = byId('libraryListId').value.trim();
+      const displayName = byId('libraryDisplayName').value.trim();
+      const description = byId('libraryDescription').value.trim();
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(siteId)}/libraries/${encodeURIComponent(listId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, description })
+      });
+      setOutput('Atualizar biblioteca', data);
+    }
+
+    async function createDrive() {
+      const siteId = byId('librarySiteId').value.trim();
+      const displayName = byId('libraryDisplayName').value.trim();
+      const description = byId('libraryDescription').value.trim();
+      const data = await fetchJson(`${API}/sites/${encodeURIComponent(siteId)}/drives`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, description })
+      });
+      setOutput('Criar drive', data);
+    }
+
+    async function updateDrive() {
+      const driveId = byId('libraryDriveId').value.trim();
+      const name = byId('libraryDisplayName').value.trim();
+      const description = byId('libraryDescription').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description })
+      });
+      setOutput('Atualizar drive', data);
+    }
+
+    async function listChannels() {
+      const teamId = byId('teamId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels`);
+      setOutput('Canais do Teams', data);
+    }
+
+    async function listChannelMembers() {
+      const teamId = byId('teamId').value.trim();
+      const channelId = byId('channelId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/members`);
+      setOutput('Membros do Canal', data);
+    }
+
+    async function listChannelContent() {
+      const teamId = byId('teamId').value.trim();
+      const channelId = byId('channelId').value.trim();
+      const topMessages = byId('topMessages').value.trim() || '25';
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/content?topMessages=${encodeURIComponent(topMessages)}`);
+      setOutput('Conteúdo do Canal', data);
+    }
+
+    async function addChannelMember() {
+      const teamId = byId('memberTeamId').value.trim();
+      const channelId = byId('memberChannelId').value.trim();
+      const userId = byId('memberUserId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, roles: getRoles() })
+      });
+      setOutput('Adicionar membro ao canal', data);
+    }
+
+    async function removeChannelMember() {
+      const teamId = byId('memberTeamId').value.trim();
+      const channelId = byId('memberChannelId').value.trim();
+      const membershipId = byId('membershipId').value.trim();
+      const data = await fetchJson(`${API}/teams/${encodeURIComponent(teamId)}/channels/${encodeURIComponent(channelId)}/members/${encodeURIComponent(membershipId)}`, {
+        method: 'DELETE'
+      });
+      setOutput('Remover membro do canal', data);
+    }
+
+    async function addGroupMember() {
+      const groupId = byId('groupId').value.trim();
+      const memberObjectId = byId('groupMemberObjectId').value.trim();
+      const data = await fetchJson(`${API}/groups/${encodeURIComponent(groupId)}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberObjectId })
+      });
+      setOutput('Adicionar membro ao grupo', data);
+    }
+
+    async function removeGroupMember() {
+      const groupId = byId('groupId').value.trim();
+      const memberObjectId = byId('groupMemberObjectId').value.trim();
+      const data = await fetchJson(`${API}/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(memberObjectId)}`, {
+        method: 'DELETE'
+      });
+      setOutput('Remover membro do grupo', data);
+    }
+
+    async function listGroups() {
+      const search = byId('groupSearch').value.trim();
+      const top = byId('groupTop').value.trim() || '25';
+      const params = new URLSearchParams({ top });
+      if (search) params.set('search', search);
+      const data = await fetchJson(`${API}/groups?${params.toString()}`);
+      setOutput('Listar grupos', data);
+    }
+
+    async function createGroup() {
+      const displayName = byId('groupDisplayName').value.trim();
+      const mailNickname = byId('groupMailNickname').value.trim();
+      const description = byId('groupDescription').value.trim();
+      const data = await fetchJson(`${API}/groups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, mailNickname, description })
+      });
+      setOutput('Criar grupo', data);
+    }
+
+    async function updateGroup() {
+      const groupId = byId('groupId').value.trim();
+      const displayName = byId('groupDisplayName').value.trim();
+      const description = byId('groupDescription').value.trim();
+      const data = await fetchJson(`${API}/groups/${encodeURIComponent(groupId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ displayName, description })
+      });
+      setOutput('Atualizar grupo', data);
+    }
+
+    async function listUsers() {
+      const search = byId('userSearch').value.trim();
+      const top = byId('userTop').value.trim() || '25';
+      const params = new URLSearchParams({ top });
+      if (search) params.set('search', search);
+      const data = await fetchJson(`${API}/users?${params.toString()}`);
+      setOutput('Listar usuários', data);
+    }
+
+    async function updateUser() {
+      const userId = byId('userId').value.trim();
+      const jobTitle = byId('userJobTitle').value.trim();
+      const data = await fetchJson(`${API}/users/${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobTitle })
+      });
+      setOutput('Atualizar usuário', data);
+    }
+
+    async function listUserLicenses() {
+      const userId = byId('userId').value.trim();
+      const data = await fetchJson(`${API}/users/${encodeURIComponent(userId)}/licenses`);
+      setOutput('Listar licenças', data);
+    }
+
+    async function assignUserLicenses() {
+      const userId = byId('userId').value.trim();
+      const skuId = byId('licenseSkuId').value.trim();
+      const removeSkuId = byId('licenseRemoveSkuId').value.trim();
+      const addLicenses = skuId ? [{ skuId }] : [];
+      const removeLicenses = removeSkuId ? [removeSkuId] : [];
+
+      const data = await fetchJson(`${API}/users/${encodeURIComponent(userId)}/licenses`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addLicenses, removeLicenses })
+      });
+      setOutput('Atribuir/remover licenças', data);
+    }
+
+    async function listItemPermissions() {
+      const driveId = byId('permDriveId').value.trim();
+      const itemId = byId('permItemId').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/permissions`);
+      setOutput('Listar permissões do item', data);
+    }
+
+    async function createItemPermission() {
+      const driveId = byId('permDriveId').value.trim();
+      const itemId = byId('permItemId').value.trim();
+      const email = byId('permRecipientEmail').value.trim();
+      const roles = parseCommaList('permRoles');
+      const message = byId('permMessage').value.trim();
+
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/permissions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipients: [{ email }], roles, message })
+      });
+      setOutput('Conceder permissão do item', data);
+    }
+
+    async function deleteItemPermission() {
+      const driveId = byId('permDriveId').value.trim();
+      const itemId = byId('permItemId').value.trim();
+      const permissionId = byId('permPermissionId').value.trim();
+      const data = await fetchJson(`${API}/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/permissions/${encodeURIComponent(permissionId)}`, {
+        method: 'DELETE'
+      });
+      setOutput('Remover permissão do item', data);
+    }
+
+    function buildExportUrl(formatOverride = null) {
+      const source = byId('exportSource').value;
+      const format = formatOverride || byId('exportFormat').value;
+      const params = new URLSearchParams({ source, format });
+
+      const driveId = byId('exportDriveId').value.trim();
+      const itemId = byId('exportItemId').value.trim();
+      const userId = byId('exportUserId').value.trim();
+      const siteId = byId('exportSiteId').value.trim();
+      const path = byId('exportPath').value.trim();
+      const teamId = byId('exportTeamId').value.trim();
+      const channelId = byId('exportChannelId').value.trim();
+
+      if (siteId) params.set('siteId', siteId);
+      if (driveId) params.set('driveId', driveId);
+      if (itemId) params.set('itemId', itemId);
+      if (userId) params.set('userId', userId);
+      if (path) params.set('path', path);
+      if (teamId) params.set('teamId', teamId);
+      if (channelId) params.set('channelId', channelId);
+
+      return `${API}/export?${params.toString()}`;
+    }
+
+    async function previewExport() {
+      const data = await fetchJson(buildExportUrl('json'));
+      setOutput('Pré-visualização da exportação', data);
+    }
+
+    async function downloadExport() {
+      const url = buildExportUrl();
+      const response = await fetch(url);
+      const contentType = response.headers.get('content-type') || 'application/octet-stream';
+      const disposition = response.headers.get('content-disposition') || '';
+      const match = disposition.match(/filename="?([^\"]+)"?/i);
+      const fileName = match
+        ? match[1]
+        : `export.${contentType.includes('csv') ? 'csv' : (contentType.includes('spreadsheetml') ? 'xlsx' : 'json')}`;
+
+      if (!response.ok) {
+        const text = await response.text();
+        setOutput('Falha na exportação', { status: response.status, body: text });
+        return;
+      }
+
+      const blob = await response.blob();
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(href);
+
+      setOutput('Exportação concluída', { url, fileName, contentType, size: blob.size });
+    }
+
+    byId('btnHealth').addEventListener('click', () => loadHealth().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnAuthenticate').addEventListener('click', () => authenticate().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnFilesMetadata').addEventListener('click', () => listFilesMetadata().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnListLibraries').addEventListener('click', () => listLibraries().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnCreateLibrary').addEventListener('click', () => createLibrary().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnUpdateLibrary').addEventListener('click', () => updateLibrary().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnCreateDrive').addEventListener('click', () => createDrive().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnUpdateDrive').addEventListener('click', () => updateDrive().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnListChannels').addEventListener('click', () => listChannels().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnListChannelMembers').addEventListener('click', () => listChannelMembers().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnChannelContent').addEventListener('click', () => listChannelContent().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnListGroups').addEventListener('click', () => listGroups().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnCreateGroup').addEventListener('click', () => createGroup().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnUpdateGroup').addEventListener('click', () => updateGroup().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnAddChannelMember').addEventListener('click', () => addChannelMember().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnRemoveChannelMember').addEventListener('click', () => removeChannelMember().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnListUsers').addEventListener('click', () => listUsers().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnUpdateUser').addEventListener('click', () => updateUser().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnListUserLicenses').addEventListener('click', () => listUserLicenses().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnAssignUserLicenses').addEventListener('click', () => assignUserLicenses().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnListItemPermissions').addEventListener('click', () => listItemPermissions().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnCreateItemPermission').addEventListener('click', () => createItemPermission().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnDeleteItemPermission').addEventListener('click', () => deleteItemPermission().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnAddGroupMember').addEventListener('click', () => addGroupMember().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnRemoveGroupMember').addEventListener('click', () => removeGroupMember().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnExport').addEventListener('click', () => downloadExport().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnPreviewExport').addEventListener('click', () => previewExport().catch((error) => setOutput('Erro', { message: error.message })));
+
+    loadHealth().catch((error) => setOutput('Erro inicial', { message: error.message }));
+  </script>
+</body>
+</html>

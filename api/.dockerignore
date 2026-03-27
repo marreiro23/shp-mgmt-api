@@ -1,0 +1,27 @@
+# CVE API - keep Docker build context small and free of generated/stub data
+
+# Dependencies / tooling artifacts
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Secrets
+.env
+.env.*
+
+# Logs / coverage
+logs
+*.log
+coverage
+.nyc_output
+
+# Generated inventory artifacts (runtime-generated; do not bake into images)
+data/inventory/*.json
+!data/inventory/README.md
+
+# Editor / VCS
+.git
+.github
+.vscode
+.idea

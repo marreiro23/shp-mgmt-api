@@ -1,0 +1,9 @@
+{
+	"name": "shp-mgmt-api-workspace",
+	"private": true,
+	"description": "Workspace metadata for the SharePoint Management API",
+	"engines": {
+		"node": ">=20.0.0 <21"
+	}
+}
+

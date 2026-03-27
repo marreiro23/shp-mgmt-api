@@ -1,0 +1,22 @@
+﻿{
+  "MySQL Connector/ODBC < 9.1.0 (UninstallString + Location)": {
+    "query": "SELECT \n    sys.Name0 as NetbiosName,\n    sw.ProductName0,\n    sw.ProductVersion0,\n    sw.UninstallString0,\n    sw.InstalledLocation0\nFROM \n    v_GS_SYSTEM sys\n    INNER JOIN v_GS_INSTALLED_SOFTWARE sw \n        ON sw.ResourceID = sys.ResourceID\nWHERE \n    sw.ProductName0 LIKE '%MySQL%Connector%'\n    AND sw.ProductVersion0 < '9.1.0'\nORDER BY\n    sys.Name0, sw.ProductVersion0 DESC",
+    "timestamp": "2026-01-09T23:15:00.000Z",
+    "resultsFound": 99,
+    "testedAt": "09/01/2026, 23:15:00",
+    "updatedAt": "2026-01-09T23:15:00.000Z",
+    "features": {
+      "includeUninstallString": true,
+      "includeLocation": true,
+      "msiCompliant": true,
+      "remediationReady": true
+    }
+  },
+  "Adobe Flash Player <= 32.0.0.433 (APSB20-58)": {
+    "query": "-- TESTE DE CUSTOMIZACAO\nSELECT TOP 10\n    v_R_System.Netbios_Name0,\n    v_GS_ADD_REMOVE_PROGRAMS.DisplayName0,\n    v_GS_ADD_REMOVE_PROGRAMS.Version0,\n    v_GS_ADD_REMOVE_PROGRAMS.Publisher0,\n    v_GS_ADD_REMOVE_PROGRAMS.ProdID0\nFROM v_R_System\nINNER JOIN v_GS_ADD_REMOVE_PROGRAMS ON v_R_System.ResourceID = v_GS_ADD_REMOVE_PROGRAMS.ResourceID\nWHERE (v_GS_ADD_REMOVE_PROGRAMS.DisplayName0 LIKE '%Flash%' AND v_GS_ADD_REMOVE_PROGRAMS.DisplayName0 LIKE '%Player%')\n    OR (v_GS_ADD_REMOVE_PROGRAMS.Publisher0 LIKE '%Adobe%' AND v_GS_ADD_REMOVE_PROGRAMS.Publisher0 LIKE '%Flash%')\n    AND v_R_System.Client0 = 1\n    AND v_R_System.Obsolete0 = 0",
+    "timestamp": "2026-01-09T21:45:00.000Z",
+    "resultsFound": 5,
+    "testedAt": "09/01/2026, 21:45:00",
+    "updatedAt": "2026-01-09T21:45:00.000Z"
+  }
+}

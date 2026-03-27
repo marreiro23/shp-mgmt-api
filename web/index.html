@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>shp-mgmt-api - SharePoint Graph Console</title>
+  <style>
+    :root {
+      --bg: #f5f2e8;
+      --ink: #1e2a2f;
+      --brand: #0f5f7a;
+      --brand-2: #db6c1f;
+      --card: #fffdf8;
+      --line: #d7cdb8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Georgia, 'Times New Roman', serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% 10%, #f0c98f 0%, transparent 25%),
+        radial-gradient(circle at 80% 20%, #8cb9c9 0%, transparent 30%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .container {
+      width: min(980px, 92vw);
+      margin: 24px auto 40px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    header {
+      padding: 24px;
+      background: linear-gradient(120deg, var(--brand), #09374a);
+      color: #fefefe;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      margin-top: 8px;
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      background: #fff;
+      cursor: pointer;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .btn.primary {
+      background: var(--brand-2);
+      color: #fff;
+      border-color: #b05417;
+    }
+
+    .status {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    pre {
+      background: #1f2226;
+      color: #d3f0ff;
+      border-radius: 12px;
+      padding: 14px;
+      overflow: auto;
+      min-height: 220px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>shp-mgmt-api</h1>
+      <p class="subtitle">Escopo refatorado para Microsoft Graph + SharePoint Online</p>
+    </header>
+
+    <section class="content">
+      <div class="actions">
+        <button id="btnAuthenticate" class="btn primary" type="button">Autenticar Graph</button>
+        <button id="btnHealth" class="btn" type="button">Health</button>
+        <button id="btnConfig" class="btn" type="button">Configuração SharePoint</button>
+        <a class="btn" href="operations.html">Abrir Operações SharePoint</a>
+        <a class="btn" href="collaboration.html">Abrir Teams e Exportação</a>
+        <a class="btn" href="admin.html">Abrir App Registration</a>
+      </div>
+
+      <div class="status">
+        <div class="card"><strong>API</strong><span id="apiStatus">-</span></div>
+        <div class="card"><strong>Autenticação</strong><span id="authStatus">-</span></div>
+        <div class="card"><strong>Última ação</strong><span id="lastAction">-</span></div>
+      </div>
+
+      <pre id="output">Aguardando ação...</pre>
+    </section>
+  </main>
+
+  <script>
+    const API = '/api/v1';
+
+    function setOutput(title, data) {
+      document.getElementById('output').textContent = `${title}\n\n${JSON.stringify(data, null, 2)}`;
+      document.getElementById('lastAction').textContent = title;
+    }
+
+    async function loadHealth() {
+      const res = await fetch('/health');
+      const data = await res.json();
+      document.getElementById('apiStatus').textContent = data.status || 'OK';
+      setOutput('Health', data);
+    }
+
+    async function loadConfig() {
+      const res = await fetch(`${API}/sharepoint/config`);
+      const data = await res.json();
+      document.getElementById('authStatus').textContent = data.data?.isAuthenticated ? 'Autenticado' : 'Não autenticado';
+      setOutput('Configuração SharePoint', data);
+    }
+
+    async function authenticate() {
+      const res = await fetch(`${API}/sharepoint/authenticate`, { method: 'POST' });
+      const data = await res.json();
+      document.getElementById('authStatus').textContent = data.success ? 'Autenticado' : 'Falha';
+      setOutput('Autenticação', data);
+    }
+
+    document.getElementById('btnAuthenticate').addEventListener('click', authenticate);
+    document.getElementById('btnHealth').addEventListener('click', loadHealth);
+    document.getElementById('btnConfig').addEventListener('click', loadConfig);
+
+    loadHealth().catch((err) => setOutput('Erro', { message: err.message }));
+  </script>
+</body>
+</html>

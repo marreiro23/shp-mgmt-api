@@ -1,0 +1,50 @@
+# escape=`
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-NoProfile", "-Command"]
+
+# Install Node.js (LTS) for Windows
+ARG NODE_VERSION=20.11.1
+COPY .build-installers/node.msi C:\node.msi
+RUN $ErrorActionPreference = 'Stop'; `
+	Start-Process msiexec.exe -ArgumentList @('/i', 'C:\node.msi', '/qn', '/norestart') -Wait; `
+	Remove-Item -Force 'C:\node.msi'
+
+ENV PATH="C:\\Program Files\\nodejs\\;C:\\Windows\\system32;C:\\Windows;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
+
+# Install Microsoft Graph PowerShell SDK (used by Intune/Entra automation)
+RUN $ErrorActionPreference = 'Stop'; `
+	$ProgressPreference = 'SilentlyContinue'; `
+	try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}; `
+	try { Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction SilentlyContinue | Out-Null } catch {}; `
+	if (-not (Get-PackageProvider -Name NuGet -ListAvailable -ErrorAction SilentlyContinue)) { `
+		Install-PackageProvider -Name NuGet -Force -Scope AllUsers | Out-Null `
+	}; `
+	$installed = $false; `
+	for ($i = 1; $i -le 3 -and -not $installed; $i++) { `
+		try { Install-Module Microsoft.Graph -Scope AllUsers -AllowClobber -Force; $installed = $true } `
+		catch { Write-Host ('Graph module install failed (try {0}/3): {1}' -f $i, $_.Exception.Message) -ForegroundColor Yellow; Start-Sleep -Seconds (3 * $i) } `
+	}; `
+	if (-not $installed) { Write-Host 'Microsoft.Graph install skipped/failed; continuing (runtime bootstrap may attempt again).' -ForegroundColor Yellow }
+
+WORKDIR C:\app
+
+COPY api\package*.json .\
+RUN npm install --omit=dev
+
+COPY api\ .\
+
+# Include web UI assets in the container image (served at /web)
+COPY web\ .\web\
+
+# Ensure optional directories exist (served at /exports and /reports)
+RUN if (-not (Test-Path -LiteralPath 'C:\app\exports')) { New-Item -ItemType Directory -Force -Path 'C:\app\exports' | Out-Null }
+RUN if (-not (Test-Path -LiteralPath 'C:\app\reports')) { New-Item -ItemType Directory -Force -Path 'C:\app\reports' | Out-Null }
+
+# Gate image creation on ASCII-only keys/headers
+RUN npm run verify:ascii
+
+ENV NODE_ENV=production
+EXPOSE 3001
+
+CMD ["node", "server.js"]

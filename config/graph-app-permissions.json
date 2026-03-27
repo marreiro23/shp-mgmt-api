@@ -1,0 +1,48 @@
+{
+  "recommendedApplicationPermissions": [
+    {
+      "name": "Sites.ReadWrite.All",
+      "reason": "Necessaria para listar e operar itens em sites SharePoint e pastas de arquivos ligadas aos canais do Teams."
+    },
+    {
+      "name": "Files.ReadWrite.All",
+      "reason": "Necessaria para operacoes de arquivos, exportacao de metadados e leitura de bibliotecas."
+    },
+    {
+      "name": "Channel.ReadBasic.All",
+      "reason": "Necessaria para listar canais de um time no Microsoft Teams."
+    },
+    {
+      "name": "ChannelMessage.Read.All",
+      "reason": "Necessaria para ler mensagens do canal e compor exportacoes de conteudo."
+    },
+    {
+      "name": "ChannelMember.ReadWrite.All",
+      "reason": "Necessaria para incluir e remover membros de canais do Teams."
+    },
+    {
+      "name": "GroupMember.ReadWrite.All",
+      "reason": "Necessaria para incluir e remover membros de grupos Entra ID."
+    }
+  ],
+  "optionalApplicationPermissions": [
+    {
+      "name": "Group.Read.All",
+      "reason": "Use apenas se o backend precisar consultar grupos antes das operacoes de associacao."
+    },
+    {
+      "name": "User.Read.All",
+      "reason": "Use apenas se o backend precisar resolver usuarios por UPN ou email antes de agir."
+    }
+  ],
+  "leastPrivilegeGuidance": [
+    "Se a API nao precisa alterar arquivos, prefira Sites.Read.All e Files.Read.All.",
+    "Se a API nao precisa alterar membros de canais, remova ChannelMember.ReadWrite.All.",
+    "Se a API nao precisa alterar grupos, remova GroupMember.ReadWrite.All.",
+    "Mantenha consentimento administrativo restrito a administradores do tenant."
+  ],
+  "executionExamples": {
+    "preview": ".\\scripts\\Update-GraphAppScopes.ps1 -TenantId \"<tenant-id>\" -ClientId \"<client-id>\" -WhatIf -OutputJson",
+    "apply": ".\\scripts\\Update-GraphAppScopes.ps1 -TenantId \"<tenant-id>\" -ClientId \"<client-id>\" -GrantAdminConsentAssignments -OutputJson"
+  }
+}

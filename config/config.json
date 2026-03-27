@@ -1,0 +1,79 @@
+{
+  "application": {
+    "name": "shp-mgmt-api",
+    "version": "3.0.0",
+    "description": "API e console SharePoint Online via Microsoft Graph",
+    "releaseDate": "2026-03-12"
+  },
+  "paths": {
+    "root": ".",
+    "api": "api",
+    "scripts": "scripts",
+    "web": "web",
+    "logs": "logs",
+    "data": "api/data",
+    "inventory": "api/data/inventory",
+    "config": "config",
+    "raw": "raw",
+    "certs": "certs",
+    "backup": "backup"
+  },
+  "api": {
+    "host": "localhost",
+    "port": 3001,
+    "nodeEnv": "development",
+    "prefix": "/api/v1",
+    "version": "3.0.0",
+    "entry": "server.js",
+    "timeout": 30000,
+    "corsOrigins": [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3001"
+    ],
+    "rateLimit": {
+      "windowMs": 900000,
+      "maxRequests": 1000
+    }
+  },
+  "logging": {
+    "level": "info",
+    "toFile": true,
+    "toConsole": true,
+    "retentionDays": 30
+  },
+  "powershell": {
+    "timeout": 300000,
+    "executionPolicy": "Bypass",
+    "defaultVersion": "7"
+  },
+  "sharepoint": {
+    "graphApiUrl": "https://graph.microsoft.com/v1.0",
+    "scope": "https://graph.microsoft.com/.default",
+    "authMode": "client-certificate",
+    "operations": [
+      "sites",
+      "drives",
+      "folders",
+      "files"
+    ]
+  },
+  "features": {
+    "sharepointGraph": true,
+    "legacyModulesEnabled": false,
+    "certificateAuth": true
+  },
+  "web": {
+    "api": {
+      "host": "localhost",
+      "port": 3001,
+      "prefix": "/api/v1",
+      "timeout": 30000
+    },
+    "ui": {
+      "refreshInterval": 30000,
+      "language": "pt-BR"
+    }
+  }
+}

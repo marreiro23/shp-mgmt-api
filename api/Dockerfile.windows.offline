@@ -1,0 +1,40 @@
+# escape=`
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-NoProfile", "-Command"]
+
+# Offline install (expects MSIs in build context)
+# - build/windows/installers/node.msi
+ARG NODE_MSI_PATH=build/windows/installers/node.msi
+
+COPY ${NODE_MSI_PATH} C:\node.msi
+RUN $ErrorActionPreference = 'Stop'; `
+    Start-Process msiexec.exe -ArgumentList @('/i', 'C:\node.msi', '/qn', '/norestart') -Wait; `
+    Remove-Item -Force 'C:\node.msi'
+
+ENV PATH="C:\Program Files\nodejs\;C:\Windows\system32;C:\Windows;C:\Windows\System32\WindowsPowerShell\v1.0\"
+
+# Keep the active workspace layout inside the image.
+WORKDIR C:\app\shp-mgmt-api\api
+
+COPY api\package*.json .\
+RUN npm install --omit=dev
+
+COPY api\ .\
+COPY config\ ..\config\
+COPY web\ ..\web\
+
+# These folders are expected at runtime, but may legitimately be empty.
+RUN $ErrorActionPreference = 'Stop'; `
+    New-Item -ItemType Directory -Force 'C:\app\shp-mgmt-api\logs' | Out-Null; `
+    New-Item -ItemType Directory -Force 'C:\app\shp-mgmt-api\raw' | Out-Null; `
+    New-Item -ItemType Directory -Force 'C:\app\shp-mgmt-api\data' | Out-Null; `
+    New-Item -ItemType Directory -Force 'C:\app\shp-mgmt-api\backup' | Out-Null
+
+# Gate image creation on ASCII-only keys/headers.
+RUN npm run verify:ascii
+
+ENV NODE_ENV=production
+EXPOSE 3001
+
+CMD ["node", "server.js"]

@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>shp-mgmt-api - Administração da App Registration</title>
+  <style>
+    :root {
+      --bg: #f1eee6;
+      --ink: #193037;
+      --panel: #fffdf6;
+      --line: #d8cdb4;
+      --brand: #0f6674;
+      --brand-2: #cb6718;
+      --danger: #b94735;
+      --muted: #5c6a70;
+      --soft: #dff1ec;
+      --shadow: 0 16px 42px rgba(16, 38, 44, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Cambria, Georgia, serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(203, 103, 24, 0.14), transparent 22%),
+        radial-gradient(circle at 100% 10%, rgba(15, 102, 116, 0.16), transparent 24%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .shell {
+      width: min(1220px, 94vw);
+      margin: 24px auto 42px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(15, 102, 116, 0.96), rgba(9, 53, 64, 0.96));
+      color: #fffdf9;
+      border-radius: 24px;
+      padding: 26px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(2rem, 3vw, 2.7rem);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .toolbar a,
+    .toolbar button,
+    .button-row button {
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font: inherit;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .toolbar a,
+    .toolbar button {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(16, 38, 44, 0.08);
+    }
+
+    .panel h2 {
+      margin: 0 0 6px;
+    }
+
+    .panel p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    input,
+    textarea,
+    button {
+      width: 100%;
+      font: inherit;
+    }
+
+    input,
+    textarea {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    .check {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      margin-top: 10px;
+    }
+
+    .check input {
+      width: auto;
+      margin: 0;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .button-row button {
+      flex: 1 1 180px;
+      color: #fff;
+      background: var(--brand);
+    }
+
+    .button-row .secondary { background: var(--brand-2); }
+    .button-row .danger { background: var(--danger); }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .status-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: linear-gradient(180deg, #fffef9, #f4ecdb);
+    }
+
+    .permissions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .permission-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .permission-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .permission-item small {
+      color: var(--muted);
+      display: block;
+      line-height: 1.4;
+    }
+
+    .pill {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      font-size: 0.82rem;
+    }
+
+    pre {
+      margin: 0;
+      min-height: 520px;
+      border-radius: 16px;
+      background: #1d2328;
+      color: #d8f3ff;
+      padding: 16px;
+      overflow: auto;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      pre {
+        min-height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1>Administração da App Registration</h1>
+      <p>Console para revisar permissões recomendadas, gerar o comando do script <strong>Update-GraphAppScopes.ps1</strong> e executar a atualização de escopos quando o backend estiver explicitamente autorizado.</p>
+      <div class="toolbar">
+        <a href="index.html">Painel Inicial</a>
+        <a href="collaboration.html">Teams e Exportação</a>
+        <a href="operations.html">Operações SharePoint</a>
+        <button id="btnLoadAdminConfig" type="button">Recarregar catálogo</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="stack">
+        <section class="panel">
+          <h2>Parâmetros da atualização</h2>
+          <p>Preencha o tenant e a App Registration. O preview do comando não executa nada; a execução remota depende da variável <strong>ENABLE_ADMIN_SCRIPT_EXECUTION=true</strong>.</p>
+          <div class="grid">
+            <div>
+              <label>Tenant ID</label>
+              <input id="tenantId" placeholder="tenant-id">
+            </div>
+            <div>
+              <label>Client ID</label>
+              <input id="clientId" placeholder="app-client-id">
+            </div>
+            <div>
+              <label>Application Object ID</label>
+              <input id="applicationObjectId" placeholder="app-object-id (opcional)">
+            </div>
+          </div>
+          <div>
+            <label>Permissões de aplicativo (uma por linha)</label>
+            <textarea id="permissionsInput" placeholder="Sites.ReadWrite.All&#10;Files.ReadWrite.All"></textarea>
+          </div>
+          <div class="check">
+            <input id="whatIf" type="checkbox" checked>
+            <label for="whatIf">Executar em modo seguro com <strong>-WhatIf</strong></label>
+          </div>
+          <div class="check">
+            <input id="grantAdminConsentAssignments" type="checkbox">
+            <label for="grantAdminConsentAssignments">Criar atribuições de app role para facilitar consentimento administrativo</label>
+          </div>
+          <div class="check">
+            <input id="executeUpdate" type="checkbox">
+            <label for="executeUpdate">Executar o script pelo backend em vez de apenas gerar preview</label>
+          </div>
+          <div class="button-row">
+            <button id="btnGenerateCommand" type="button">Gerar preview do comando</button>
+            <button id="btnRunUpdateScopes" class="secondary" type="button">Enviar atualização</button>
+            <button id="btnUseRecommendedPermissions" class="danger" type="button">Repor permissões recomendadas</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Permissões recomendadas</h2>
+          <div id="recommendedPermissions" class="permissions"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Permissões opcionais e menor privilégio</h2>
+          <div id="optionalPermissions" class="permissions"></div>
+          <div id="leastPrivilegeGuidance" class="permissions" style="margin-top: 12px;"></div>
+        </section>
+      </div>
+
+      <aside class="stack">
+        <section class="panel">
+          <h2>Status do ambiente</h2>
+          <div class="status-grid">
+            <div class="status-card"><strong>Execução remota</strong><span id="executionEnabled">-</span></div>
+            <div class="status-card"><strong>PowerShell</strong><span id="powerShellExecutable">-</span></div>
+            <div class="status-card"><strong>Script</strong><span id="scriptPath">-</span></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Saída</h2>
+          <p>O painel mostra o comando gerado, o payload enviado e o resultado do backend.</p>
+          <pre id="output">Aguardando carregamento do catálogo administrativo...</pre>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const API = '/api/v1/sharepoint/admin';
+    let cachedMetadata = null;
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+
+    function setOutput(title, payload) {
+      byId('output').textContent = `${title}\n\n${JSON.stringify(payload, null, 2)}`;
+    }
+
+    function renderPermissionList(containerId, items, label) {
+      const container = byId(containerId);
+      container.innerHTML = '';
+      (items || []).forEach((item) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'permission-item';
+        wrapper.innerHTML = `<strong>${item.name || label}</strong><small>${item.reason || item}</small>${item.name ? `<span class="pill">${label}</span>` : ''}`;
+        container.appendChild(wrapper);
+      });
+    }
+
+    function getPermissionsFromText() {
+      return byId('permissionsInput').value
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+
+    function setRecommendedPermissions() {
+      const permissions = (cachedMetadata?.recommendedApplicationPermissions || []).map((item) => item.name);
+      byId('permissionsInput').value = permissions.join('\n');
+    }
+
+    async function fetchJson(url, options) {
+      const response = await fetch(url, options);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error?.message || `Falha HTTP ${response.status}`);
+      }
+      return data;
+    }
+
+    function buildRequestBody() {
+      return {
+        tenantId: byId('tenantId').value.trim(),
+        clientId: byId('clientId').value.trim(),
+        applicationObjectId: byId('applicationObjectId').value.trim(),
+        graphApplicationPermissions: getPermissionsFromText(),
+        grantAdminConsentAssignments: byId('grantAdminConsentAssignments').checked,
+        whatIf: byId('whatIf').checked,
+        execute: byId('executeUpdate').checked
+      };
+    }
+
+    async function loadMetadata() {
+      const data = await fetchJson(`${API}/app-registration`);
+      cachedMetadata = data.data;
+      byId('executionEnabled').textContent = cachedMetadata.executionEnabled ? 'Habilitada' : 'Desabilitada';
+      byId('powerShellExecutable').textContent = cachedMetadata.powerShellExecutable;
+      byId('scriptPath').textContent = cachedMetadata.scriptPath;
+      renderPermissionList('recommendedPermissions', cachedMetadata.recommendedApplicationPermissions, 'recomendada');
+      renderPermissionList('optionalPermissions', cachedMetadata.optionalApplicationPermissions, 'opcional');
+      renderPermissionList('leastPrivilegeGuidance', cachedMetadata.leastPrivilegeGuidance, 'guidance');
+      setRecommendedPermissions();
+      setOutput('Catálogo administrativo carregado', cachedMetadata);
+    }
+
+    async function generateCommandPreview() {
+      const payload = buildRequestBody();
+      const data = await fetchJson(`${API}/update-scopes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, execute: false })
+      });
+      setOutput('Preview do comando', { request: payload, response: data });
+    }
+
+    async function runUpdateScopes() {
+      const payload = buildRequestBody();
+      const data = await fetchJson(`${API}/update-scopes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      setOutput('Resultado da atualização de escopos', { request: payload, response: data });
+    }
+
+    byId('btnLoadAdminConfig').addEventListener('click', () => loadMetadata().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnGenerateCommand').addEventListener('click', () => generateCommandPreview().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnRunUpdateScopes').addEventListener('click', () => runUpdateScopes().catch((error) => setOutput('Erro', { message: error.message })));
+    byId('btnUseRecommendedPermissions').addEventListener('click', () => {
+      setRecommendedPermissions();
+      setOutput('Permissões recomendadas reaplicadas', { permissions: getPermissionsFromText() });
+    });
+
+    loadMetadata().catch((error) => setOutput('Erro inicial', { message: error.message }));
+  </script>
+</body>
+</html>

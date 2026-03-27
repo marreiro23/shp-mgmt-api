@@ -1,0 +1,44 @@
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env and secrets
+.env
+.env.local
+.env.production
+api/.env
+api/.env.local
+api/.env.production
+certs/*.pem
+certs/*.pfx
+certs/*.key
+certs/*.crt
+
+# Logs and runtime outputs
+logs/
+*.log
+api/logs/
+
+# Runtime data stores (generated)
+api/data/inventory/*.json
+api/data/audit/*.json
+api/data/operations/*.json
+!api/data/inventory/README.md
+!api/data/audit/README.md
+!api/data/operations/README.md
+
+# Build/cache
+dist/
+build/
+coverage/
+.cache/
