@@ -21,7 +21,16 @@ const envSchema = Joi.object({
   ENABLE_ADMIN_SCRIPT_EXECUTION: Joi.boolean().truthy('true').falsy('false').default(false),
   ADMIN_SCRIPT_TIMEOUT_MS: Joi.number().positive().default(120000),
   POWERSHELL_EXECUTABLE: Joi.string().default('pwsh'),
-  FEATURE_FLAGS: Joi.string().default('governance-import-export,governance-compare,audit-trail')
+  FEATURE_FLAGS: Joi.string().default('governance-import-export,governance-compare,audit-trail'),
+
+  // PostgreSQL — all optional; API runs without them (in-memory fallback)
+  PG_HOST: Joi.string().hostname().optional(),
+  PG_PORT: Joi.number().port().default(5432),
+  PG_DATABASE: Joi.string().optional(),
+  PG_USER: Joi.string().optional(),
+  PG_PASSWORD: Joi.string().allow('').optional(),
+  PG_SSL: Joi.boolean().truthy('true').falsy('false').default(false),
+  PG_SCHEMA: Joi.string().default('shp')
 }).unknown(true);
 
 const { value } = envSchema.validate(process.env, { abortEarly: false, allowUnknown: true });
@@ -46,7 +55,20 @@ const config = {
   CORS_ORIGINS: String(value.CORS_ORIGINS)
     .split(',')
     .map((origin) => origin.trim())
-    .filter(Boolean)
+    .filter(Boolean),
+
+  // PostgreSQL connection (optional — API works without it)
+  PG: value.PG_HOST
+    ? {
+        host: value.PG_HOST,
+        port: Number(value.PG_PORT),
+        database: value.PG_DATABASE,
+        user: value.PG_USER,
+        password: value.PG_PASSWORD || undefined,
+        ssl: Boolean(value.PG_SSL),
+        schema: value.PG_SCHEMA
+      }
+    : null
 };
 
 export default config;
