@@ -41,6 +41,37 @@ describe('Web pages smoke tests', () => {
     expect(text).to.contain('id="btnAddGroupMember"');
   });
 
+  it('serves index page with default redirect to operations center', async () => {
+    const { response, text } = await fetchText('/web/index.html');
+
+    expect(response.status).to.equal(200);
+    expect(text).to.contain("window.location.replace('operations-center.html')");
+    expect(text).to.contain("params.has('legacy')");
+  });
+
+  it('serves operations center page with governance controls', async () => {
+    const { response, text } = await fetchText('/web/operations-center.html');
+
+    expect(response.status).to.equal(200);
+    expect(text).to.contain('id="btnImpExecute"');
+    expect(text).to.contain('id="btnCmpExecute"');
+    expect(text).to.contain('id="btnOpsGet"');
+    expect(text).to.contain('id="btnAudList"');
+    expect(text).to.contain('id="btnExpCompareDownload"');
+  });
+
+  it('serves operations center with client navigation structure', async () => {
+    const { response, text } = await fetchText('/web/operations-center.html');
+
+    expect(response.status).to.equal(200);
+    expect(text).to.contain('class="nav-item active"');
+    expect(text).to.contain('data-page="importPage"');
+    expect(text).to.contain('data-page="comparePage"');
+    expect(text).to.contain('data-tab="homeStatus"');
+    expect(text).to.contain("querySelectorAll('.nav-item')");
+    expect(text).to.contain('function bindNavigation()');
+  });
+
   it('serves admin page with command and execution controls', async () => {
     const { response, text } = await fetchText('/web/admin.html');
 
@@ -56,6 +87,9 @@ describe('Web pages smoke tests', () => {
     const data = await response.json();
 
     expect(response.status).to.equal(200);
+    expect(data.web.home).to.equal('/web/operations-center.html');
+    expect(data.web.legacyHome).to.equal('/web/index.html');
+    expect(data.web.operationsCenter).to.equal('/web/operations-center.html');
     expect(data.web.admin).to.equal('/web/admin.html');
     expect(data.endpoints.adminAppRegistration).to.equal('/api/v1/sharepoint/admin/app-registration');
   });

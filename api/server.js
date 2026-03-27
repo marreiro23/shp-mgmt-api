@@ -104,7 +104,9 @@ function createApp() {
         auditEvents: `${config.API_PREFIX}/sharepoint/audit/events`
       },
       web: {
-        home: '/web/index.html',
+        home: '/web/operations-center.html',
+        legacyHome: '/web/index.html',
+        operationsCenter: '/web/operations-center.html',
         operations: '/web/operations.html',
         collaboration: '/web/collaboration.html',
         admin: '/web/admin.html'

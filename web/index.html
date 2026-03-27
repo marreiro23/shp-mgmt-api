@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>shp-mgmt-api - SharePoint Graph Console</title>
+  <script>
+    // Keep legacy page available with ?legacy=1 while making Operations Center the default entry point.
+    (function redirectToOperationsCenter() {
+      const params = new URLSearchParams(window.location.search);
+      if (!params.has('legacy')) {
+        window.location.replace('operations-center.html');
+      }
+    })();
+  </script>
   <style>
     :root {
       --bg: #f5f2e8;
@@ -125,6 +134,7 @@
         <button id="btnAuthenticate" class="btn primary" type="button">Autenticar Graph</button>
         <button id="btnHealth" class="btn" type="button">Health</button>
         <button id="btnConfig" class="btn" type="button">Configuração SharePoint</button>
+        <a class="btn primary" href="operations-center.html">Abrir Operations Center</a>
         <a class="btn" href="operations.html">Abrir Operações SharePoint</a>
         <a class="btn" href="collaboration.html">Abrir Teams e Exportação</a>
         <a class="btn" href="admin.html">Abrir App Registration</a>

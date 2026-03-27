@@ -25,6 +25,18 @@ Este diretório mantém apenas automações do escopo SharePoint Graph.
 - `common/Get-ProjectConfig.ps1`
   - Carrega o `config/config.json` simplificado do projeto.
 
+- `Git-InitLocalRepository.ps1`
+  - Inicializa repositório local, cria/ajusta branch inicial, adiciona arquivos, cria commit e opcionalmente configura remoto/push.
+
+- `Git-NewBranch.ps1`
+  - Cria nova branch a partir de uma base definida (`main` por padrão) com opcional de fetch e publish remoto.
+
+- `Git-SyncMainAndValidate.ps1`
+  - Atualiza branch `main`, valida sincronismo com remoto e executa comando opcional de validação.
+
+- `git-automation/README.md`
+  - Guia detalhado de uso dos scripts de automação Git (bootstrap, branch e sync da main).
+
 ## Uso rápido
 
 ```powershell
@@ -34,6 +46,11 @@ Este diretório mantém apenas automações do escopo SharePoint Graph.
 .\scripts\Invoke-SharePointFileOps.ps1 -DriveId "<drive-id>" -ApiBaseUrl "http://localhost:3001/api/v1"
 .\scripts\Update-GraphAppScopes.ps1 -TenantId "<tenant-id>" -ClientId "<app-client-id>" -GrantAdminConsentAssignments
 .\scripts\Update-GraphAppScopes.ps1 -ListRecommendedPermissions -OutputJson
+
+# automacao git
+.\scripts\Git-InitLocalRepository.ps1 -InitialBranch main -CommitMessage "chore: bootstrap" -RemoteUrl "https://github.com/org/repo.git" -Push
+.\scripts\Git-NewBranch.ps1 -Name "feature/operations-center" -From main -Fetch -TrackRemote
+.\scripts\Git-SyncMainAndValidate.ps1 -MainBranch main -RemoteName origin -FailIfDirty -ValidationCommand "npm test -- --grep 'Web pages smoke tests'"
 ```
 
 ## Fluxo guiado para App Registration

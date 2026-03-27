@@ -5,9 +5,18 @@ Frontend estático mínimo para validar o fluxo ativo da API SharePoint Graph.
 ## Páginas ativas
 
 - `index.html`
+  - Redireciona por padrão para `operations-center.html`.
+  - A interface legada permanece acessível com `index.html?legacy=1`.
   - Health check da API.
   - Visualização da configuração atual de autenticação.
   - Disparo do endpoint de autenticação Graph.
+
+- `operations-center.html`
+  - Interface unificada em estilo console operacional.
+  - Navegação lateral por módulos: SharePoint, Teams/Entra, Import, Compare, Operações, Auditoria e Exportação.
+  - Execução de import/compare com `operationId` e integração com monitoramento assíncrono.
+  - Exportação operacional e exportação de diff de compare por `operationId`.
+  - Layout desktop-like inspirado no modelo de operação da aplicação de referência.
 
 - `operations.html`
   - Busca de sites.
@@ -48,8 +57,9 @@ Frontend estático mínimo para validar o fluxo ativo da API SharePoint Graph.
 ## Validação rápida
 
 1. Inicie a API em `http://localhost:3001`.
-2. Abra `/web/index.html`.
+2. Abra `/web/index.html` (redirecionamento automático para o Operations Center).
 3. Execute autenticação.
-4. Siga para `/web/operations.html` para testar sites, drives e arquivos.
-5. Use `/web/collaboration.html` para Teams, Entra ID e exportação.
-6. Use `/web/admin.html` para App Registration e permissões.
+4. Acesse `/web/operations-center.html` para o fluxo unificado de operação.
+5. Siga para `/web/operations.html` para validar o fluxo legado de sites, drives e arquivos.
+6. Use `/web/collaboration.html` para Teams, Entra ID e exportação legada.
+7. Use `/web/admin.html` para App Registration e permissões.

@@ -24,6 +24,15 @@ npm install
 npm run start:lts
 ```
 
+## Interface web
+
+- entrada padrao: `/web/operations-center.html`
+- entrada legada: `/web/index.html?legacy=1`
+- modulos legados: `/web/operations.html`, `/web/collaboration.html`, `/web/admin.html`
+
+Quando acessado sem query string, `/web/index.html` redireciona para
+`/web/operations-center.html`.
+
 ## Rotas
 
 - `GET /health`
